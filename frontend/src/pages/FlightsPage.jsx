@@ -20,7 +20,7 @@ export default function FlightsPage() {
       <div className="bg-gradient-to-b from-orange-500 to-orange-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
           <h1 className="text-white text-2xl font-bold text-center mb-6">Domestic and International Flights</h1>
-          <div className="bg-white rounded-2xl shadow-2xl p-5">
+          <div className="bg-white rounded-2xl shadow-2xl p-6">
             <FlightSearch />
           </div>
         </div>
