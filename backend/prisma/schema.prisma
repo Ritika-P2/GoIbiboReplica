@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings  Booking[]
+  reviews   Review[]
+
+  @@map("users")
+}
+
+model Flight {
+  id             String     @id @default(uuid())
+  flightNumber   String
+  airline        String
+  origin         String
+  destination    String
+  departureTime  DateTime
+  arrivalTime    DateTime
+  duration       Int
+  price          Decimal    @db.Decimal(10, 2)
+  totalSeats     Int
+  availableSeats Int
+  cabinClass     CabinClass @default(ECONOMY)
+  stops          Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  bookings Booking[]
+
+  @@map("flights")
+}
+
+model Hotel {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  city        String
+  address     String
+  starRating  Int
+  amenities   String[]
+  images      String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms    Room[]
+  bookings Booking[]
+  reviews  Review[]
+
+  @@map("hotels")
+}
+
+model Room {
+  id             String   @id @default(uuid())
+  hotelId        String
+  type           String
+  description    String?
+  pricePerNight  Decimal  @db.Decimal(10, 2)
+  capacity       Int
+  totalRooms     Int
+  availableRooms Int
+  amenities      String[]
+  images         String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@map("rooms")
+}
+
+model Train {
+  id             String   @id @default(uuid())
+  trainNumber    String
+  trainName      String
+  origin         String
+  destination    String
+  departureTime  DateTime
+  arrivalTime    DateTime
+  duration       Int
+  classes        Json
+  totalSeats     Int
+  availableSeats Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@map("trains")
+}
+
+model Bus {
+  id             String   @id @default(uuid())
+  operator       String
+  busType        String
+  origin         String
+  destination    String
+  departureTime  DateTime
+  arrivalTime    DateTime
+  duration       Int
+  price          Decimal  @db.Decimal(10, 2)
+  totalSeats     Int
+  availableSeats Int
+  amenities      String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@map("buses")
+}
+
+model Cab {
+  id         String   @id @default(uuid())
+  type       String
+  model      String
+  capacity   Int
+  pricePerKm Decimal  @db.Decimal(10, 2)
+  basePrice  Decimal  @db.Decimal(10, 2)
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@map("cabs")
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  userId      String
+  type        BookingType
+  status      BookingStatus @default(PENDING)
+  totalAmount Decimal       @db.Decimal(10, 2)
+  passengers  Json
+  contactInfo Json
+  packageData Json?
+  flightId    String?
+  hotelId     String?
+  roomId      String?
+  trainId     String?
+  busId       String?
+  cabId       String?
+  checkIn     DateTime?
+  checkOut    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id])
+  flight  Flight?  @relation(fields: [flightId], references: [id])
+  hotel   Hotel?   @relation(fields: [hotelId], references: [id])
+  room    Room?    @relation(fields: [roomId], references: [id])
+  train   Train?   @relation(fields: [trainId], references: [id])
+  bus     Bus?     @relation(fields: [busId], references: [id])
+  cab     Cab?     @relation(fields: [cabId], references: [id])
+  payment Payment?
+
+  @@map("bookings")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  bookingId     String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+  method        String?
+  transactionId String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  hotelId   String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+
+  @@map("reviews")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingType {
+  FLIGHT
+  HOTEL
+  TRAIN
+  BUS
+  CAB
+  HOLIDAY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum CabinClass {
+  ECONOMY
+  PREMIUM_ECONOMY
+  BUSINESS
+  FIRST
+}
