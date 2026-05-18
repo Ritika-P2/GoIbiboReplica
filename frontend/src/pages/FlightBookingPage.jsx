@@ -3,12 +3,29 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { bookingStart, bookingSuccess, bookingFailure } from '../store/slices/bookingSlice'
 import { bookingService } from '../services/bookingService'
+import { couponService } from '../services/couponService'
 import { ROUTES } from '../constants/routes'
 import Button from '../components/common/Button'
 import Input from '../components/common/Input'
 
 const STEPS = ['Passenger Details', 'Contact Info', 'Review & Pay']
 const CABINS = { ECONOMY: 'Economy', PREMIUM_ECONOMY: 'Premium Economy', BUSINESS: 'Business', FIRST: 'First Class' }
+
+const SPECIAL_FARES = {
+  REGULAR:        { label: 'Regular',        icon: '✈️',  discount: null },
+  STUDENT:        { label: 'Student',         icon: '🎓',  discount: { type: 'PERCENT', value: 10 },  note: 'Extra baggage allowance included' },
+  ARMED_FORCES:   { label: 'Armed Forces',    icon: '🪖',  discount: { type: 'FLAT',    value: 600 }, note: 'Valid ID proof required at check-in' },
+  SENIOR_CITIZEN: { label: 'Senior Citizen',  icon: '👴',  discount: { type: 'FLAT',    value: 600 }, note: 'Valid for passengers aged 60+' },
+  DOCTOR_NURSE:   { label: 'Doctor & Nurses', icon: '🩺',  discount: { type: 'FLAT',    value: 600 }, note: 'Valid medical professional ID required' },
+}
+
+function computeDiscount(specialFare, baseTotal) {
+  const fare = SPECIAL_FARES[specialFare]
+  if (!fare || !fare.discount) return 0
+  if (fare.discount.type === 'PERCENT') return Math.round(baseTotal * fare.discount.value / 100)
+  if (fare.discount.type === 'FLAT')    return Math.min(fare.discount.value, baseTotal)
+  return 0
+}
 
 function fmt(dt) {
   return new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -23,7 +40,7 @@ export default function FlightBookingPage() {
   const dispatch = useDispatch()
   const { loading, error } = useSelector(s => s.booking)
 
-  const { flight, passengers = 1, cabin = 'ECONOMY' } = location.state || {}
+  const { flight, passengers = 1, cabin = 'ECONOMY', specialFare = 'REGULAR' } = location.state || {}
 
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
@@ -35,6 +52,14 @@ export default function FlightBookingPage() {
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCVV, setCardCVV] = useState('')
 
+  // Coupon state (only usable when specialFare === REGULAR)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponInput, setCouponInput] = useState('')
+  const [couponDiscount, setCouponDiscount] = useState(0)
+  const [couponDesc, setCouponDesc] = useState('')
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+
   if (!flight) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -44,7 +69,12 @@ export default function FlightBookingPage() {
     )
   }
 
-  const totalPrice = Number(flight.price) * Number(passengers)
+  const baseFare = Number(flight.price) * Number(passengers)
+  const fareInfo = SPECIAL_FARES[specialFare] || SPECIAL_FARES.REGULAR
+  const specialDiscount = computeDiscount(specialFare, baseFare)
+  const totalDiscount = specialDiscount + couponDiscount
+  const totalPrice = Math.max(0, baseFare - totalDiscount)
+  const isSpecialFareActive = specialFare !== 'REGULAR'
 
   function updatePassenger(i, field, value) {
     setPassengerForms(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
@@ -57,6 +87,34 @@ export default function FlightBookingPage() {
     return contact.email.includes('@') && contact.phone.length >= 10
   }
 
+  async function applyCoupon() {
+    if (!couponInput.trim()) return
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const res = await couponService.validate(couponInput.trim().toUpperCase(), baseFare)
+      const { code, discount, description } = res
+      setCouponCode(code)
+      setCouponDiscount(discount)
+      setCouponDesc(description)
+      setCouponInput('')
+    } catch (e) {
+      setCouponError(e.message || 'Invalid coupon code')
+      setCouponDiscount(0)
+      setCouponCode('')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  function removeCoupon() {
+    setCouponCode('')
+    setCouponDiscount(0)
+    setCouponDesc('')
+    setCouponError('')
+    setCouponInput('')
+  }
+
   async function handleBook() {
     dispatch(bookingStart())
     try {
@@ -66,6 +124,13 @@ export default function FlightBookingPage() {
         passengers: passengerForms,
         contactInfo: contact,
         totalAmount: totalPrice,
+        packageData: {
+          specialFare,
+          specialFareLabel: fareInfo.label,
+          specialDiscount,
+          couponCode: couponCode || null,
+          couponDiscount,
+        },
       }
       const res = await bookingService.create(payload)
       const bookingId = res.data.booking?.id
@@ -73,7 +138,10 @@ export default function FlightBookingPage() {
       setPaymentDone(true)
       setTimeout(() => {
         navigate(ROUTES.BOOKING_CONFIRMATION, {
-          state: { bookingId, type: 'FLIGHT', flight, passengers: passengerForms, contact, totalPrice }
+          state: {
+            bookingId, type: 'FLIGHT', flight, passengers: passengerForms, contact,
+            totalPrice, specialFare, specialDiscount, couponCode, couponDiscount,
+          }
         })
       }, 2000)
     } catch (e) {
@@ -119,6 +187,22 @@ export default function FlightBookingPage() {
               </div>
             ))}
           </div>
+
+          {/* Special fare banner */}
+          {isSpecialFareActive && (
+            <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <span className="text-2xl">{fareInfo.icon}</span>
+              <div>
+                <p className="font-semibold text-blue-800 text-sm">
+                  {fareInfo.label} Fare Applied
+                  {specialDiscount > 0 && (
+                    <span className="ml-2 text-green-600">— saving ₹{specialDiscount.toLocaleString('en-IN')}</span>
+                  )}
+                </p>
+                {fareInfo.note && <p className="text-xs text-blue-600 mt-0.5">📌 {fareInfo.note}</p>}
+              </div>
+            </div>
+          )}
 
           {/* Step 0: Passengers */}
           {step === 0 && (
@@ -187,6 +271,46 @@ export default function FlightBookingPage() {
                 </div>
               </div>
 
+              {/* Coupon code */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="font-semibold text-gray-900 mb-3">Promo / Coupon Code</h2>
+                {isSpecialFareActive ? (
+                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+                    <span>⚠️</span>
+                    <span>Coupon codes cannot be combined with <strong>{fareInfo.label} Fare</strong> discounts.</span>
+                  </div>
+                ) : couponCode ? (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div>
+                      <p className="text-sm font-semibold text-green-700">🎉 {couponCode} applied</p>
+                      <p className="text-xs text-green-600">{couponDesc} — saving ₹{couponDiscount.toLocaleString('en-IN')}</p>
+                    </div>
+                    <button onClick={removeCoupon} className="text-xs text-red-500 hover:underline">Remove</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                        onKeyDown={e => e.key === 'Enter' && applyCoupon()} />
+                      <Button size="sm" onClick={applyCoupon} loading={couponLoading} disabled={!couponInput.trim()}>
+                        Apply
+                      </Button>
+                    </div>
+                    {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {['QUICK20', 'GOIBIBO10', 'FLAT500'].map(c => (
+                        <button key={c} type="button" onClick={() => setCouponInput(c)}
+                          className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1 rounded-full hover:bg-blue-100">
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Mock payment */}
               <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900">Payment Details</h2>
@@ -209,8 +333,7 @@ export default function FlightBookingPage() {
 
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                <Button loading={loading} onClick={handleBook}
-                  className="flex-1">
+                <Button loading={loading} onClick={handleBook} className="flex-1">
                   Pay ₹{totalPrice.toLocaleString('en-IN')}
                 </Button>
               </div>
@@ -218,7 +341,7 @@ export default function FlightBookingPage() {
           )}
         </div>
 
-        {/* Right: Flight summary */}
+        {/* Right: Flight summary + price breakdown */}
         <div className="lg:w-80 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-4">
             <h3 className="font-semibold text-gray-900 mb-4">Flight Details</h3>
@@ -247,11 +370,32 @@ export default function FlightBookingPage() {
               </div>
             </div>
             <div className="text-xs text-gray-500 mb-4">{CABINS[flight.cabinClass] || flight.cabinClass}</div>
-            <div className="border-t border-gray-100 pt-4 space-y-1">
+
+            {/* Special fare badge */}
+            {isSpecialFareActive && (
+              <div className="mb-3 flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                <span className="text-sm">{fareInfo.icon}</span>
+                <span className="text-xs font-semibold text-blue-700">{fareInfo.label} Fare</span>
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 pt-4 space-y-1.5">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Base fare × {passengers}</span>
-                <span>₹{(Number(flight.price) * Number(passengers)).toLocaleString('en-IN')}</span>
+                <span>₹{baseFare.toLocaleString('en-IN')}</span>
               </div>
+              {specialDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>{fareInfo.icon} {fareInfo.label} discount</span>
+                  <span>−₹{specialDiscount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>🎟 {couponCode}</span>
+                  <span>−₹{couponDiscount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Taxes & fees</span>
                 <span>Included</span>
@@ -260,6 +404,11 @@ export default function FlightBookingPage() {
                 <span>Total</span>
                 <span className="text-blue-600">₹{totalPrice.toLocaleString('en-IN')}</span>
               </div>
+              {totalDiscount > 0 && (
+                <p className="text-xs text-green-600 text-right font-medium">
+                  You save ₹{totalDiscount.toLocaleString('en-IN')}!
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -5,10 +5,18 @@ import Input from '../common/Input'
 import Button from '../common/Button'
 import { ROUTES } from '../../constants/routes'
 
+const SPECIAL_FARES = [
+  { id: 'REGULAR',        label: 'Regular',         sub: 'Regular fares',           icon: '✈️' },
+  { id: 'STUDENT',        label: 'Student',          sub: 'Extra discounts/baggage', icon: '🎓' },
+  { id: 'ARMED_FORCES',   label: 'Armed Forces',     sub: 'Up to ₹600 off',         icon: '🪖' },
+  { id: 'SENIOR_CITIZEN', label: 'Senior Citizen',   sub: 'Up to ₹600 off',         icon: '👴' },
+  { id: 'DOCTOR_NURSE',   label: 'Doctor & Nurses',  sub: 'Up to ₹600 off',         icon: '🩺' },
+]
+
 export default function FlightSearch() {
   const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({ origin: '', destination: '', date: today, passengers: 1, cabin: 'ECONOMY' })
+  const [form, setForm] = useState({ origin: '', destination: '', date: today, passengers: 1, cabin: 'ECONOMY', specialFare: 'REGULAR' })
   const [tripType, setTripType] = useState('one-way')
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
@@ -62,6 +70,23 @@ export default function FlightSearch() {
               <option value="FIRST">First</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* Special Fares */}
+      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Special Fares</p>
+        <div className="flex flex-wrap gap-2">
+          {SPECIAL_FARES.map(sf => (
+            <button key={sf.id} type="button" onClick={() => set('specialFare', sf.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all ${form.specialFare === sf.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+              <span className="text-base">{sf.icon}</span>
+              <div>
+                <p className={`text-xs font-semibold leading-tight ${form.specialFare === sf.id ? 'text-blue-700' : 'text-gray-800'}`}>{sf.label}</p>
+                <p className={`text-xs leading-tight ${form.specialFare === sf.id ? 'text-blue-500' : 'text-gray-400'}`}>{sf.sub}</p>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 

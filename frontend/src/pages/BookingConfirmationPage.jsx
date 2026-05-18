@@ -15,7 +15,15 @@ export default function BookingConfirmationPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { bookingId, type, flight, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount } = location.state || {}
+  const { bookingId, type, flight, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount, specialFare, specialDiscount } = location.state || {}
+
+  const SPECIAL_FARE_LABELS = {
+    REGULAR: null,
+    STUDENT: { label: 'Student Fare', icon: '🎓' },
+    ARMED_FORCES: { label: 'Armed Forces Fare', icon: '🪖' },
+    SENIOR_CITIZEN: { label: 'Senior Citizen Fare', icon: '👴' },
+    DOCTOR_NURSE: { label: 'Doctor & Nurses Fare', icon: '🩺' },
+  }
 
   if (!bookingId) {
     return (
@@ -86,6 +94,13 @@ export default function BookingConfirmationPage() {
                   <p className="text-gray-600 font-medium">{flight.destination}</p>
                 </div>
               </div>
+              {specialFare && specialFare !== 'REGULAR' && SPECIAL_FARE_LABELS[specialFare] && (
+                <div className="mt-3 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-sm">
+                  <span>{SPECIAL_FARE_LABELS[specialFare].icon}</span>
+                  <span className="text-blue-700 font-medium">{SPECIAL_FARE_LABELS[specialFare].label}</span>
+                  {specialDiscount > 0 && <span className="text-green-600 ml-auto">−₹{Number(specialDiscount).toLocaleString('en-IN')}</span>}
+                </div>
+              )}
             </div>
           )}
 

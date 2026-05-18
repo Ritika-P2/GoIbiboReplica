@@ -15,6 +15,7 @@ export default function FlightResultsPage() {
   const date        = searchParams.get('date') || ''
   const passengers  = searchParams.get('passengers') || 1
   const cabin       = searchParams.get('cabin') || 'ECONOMY'
+  const specialFare = searchParams.get('specialFare') || 'REGULAR'
 
   const [flights,  setFlights]  = useState([])
   const [loading,  setLoading]  = useState(true)
@@ -52,7 +53,7 @@ export default function FlightResultsPage() {
   })
 
   function handleSelect(flight) {
-    navigate(ROUTES.FLIGHT_BOOKING, { state: { flight, passengers, cabin } })
+    navigate(ROUTES.FLIGHT_BOOKING, { state: { flight, passengers, cabin, specialFare } })
   }
 
   const fmtDate = date ? new Date(date).toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short', year:'numeric' }) : ''
@@ -64,7 +65,14 @@ export default function FlightResultsPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           {origin} → {destination}
         </h1>
-        <p className="text-gray-500 mt-1">{fmtDate} · {passengers} traveller{passengers > 1 ? 's' : ''} · {cabin.replace('_',' ')}</p>
+        <p className="text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+          <span>{fmtDate} · {passengers} traveller{passengers > 1 ? 's' : ''} · {cabin.replace('_',' ')}</span>
+          {specialFare !== 'REGULAR' && (
+            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+              ✦ {specialFare.replace('_', ' ')} fare applied
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="flex gap-6">
