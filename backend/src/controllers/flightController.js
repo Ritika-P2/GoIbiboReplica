@@ -43,4 +43,18 @@ async function deleteFlight(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { searchFlights, getFlightById, listFlights, createFlight, updateFlight, deleteFlight }
+async function approveFlight(req, res, next) {
+  try {
+    const flight = await flightService.approveFlight(req.params.id)
+    res.json(successResponse('Flight approved.', { flight }))
+  } catch (err) { next(err) }
+}
+
+async function rejectFlight(req, res, next) {
+  try {
+    const flight = await flightService.rejectFlight(req.params.id, req.body.reason)
+    res.json(successResponse('Flight rejected.', { flight }))
+  } catch (err) { next(err) }
+}
+
+module.exports = { searchFlights, getFlightById, listFlights, createFlight, updateFlight, deleteFlight, approveFlight, rejectFlight }

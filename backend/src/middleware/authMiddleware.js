@@ -18,6 +18,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// MANAGER or ADMIN — can manage inventory (add/edit/delete)
 function adminMiddleware(req, res, next) {
   if (req.user?.role !== 'MANAGER' && req.user?.role !== 'ADMIN') {
     return res.status(403).json(errorResponse('Access denied. Managers only.'))
@@ -25,4 +26,12 @@ function adminMiddleware(req, res, next) {
   next()
 }
 
-module.exports = { authMiddleware, adminMiddleware }
+// ADMIN only — can approve or reject entries
+function approverMiddleware(req, res, next) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json(errorResponse('Access denied. Approvers only.'))
+  }
+  next()
+}
+
+module.exports = { authMiddleware, adminMiddleware, approverMiddleware }

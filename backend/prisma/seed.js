@@ -24,6 +24,7 @@ async function seedUsers() {
   const hash = (pw) => bcrypt.hashSync(pw, 12)
 
   const users = [
+    { name: 'Admin',          email: 'admin@goibibo.com',   password: hash('Admin@1234'),   role: 'ADMIN',   phone: '9000000000' },
     { name: 'Manager',        email: 'manager@goibibo.com', password: hash('Manager@1234'), role: 'MANAGER', phone: '9000000001' },
     { name: 'Ritika Purohit', email: 'ritika@goibibo.com', password: hash('Test@1234'),  role: 'USER',  phone: '9876543210' },
     { name: 'Arjun Mehta',    email: 'arjun@goibibo.com',  password: hash('Test@1234'),  role: 'USER',  phone: '9123456789' },

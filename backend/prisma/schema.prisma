@@ -24,21 +24,23 @@ model User {
 }
 
 model Flight {
-  id             String     @id @default(uuid())
-  flightNumber   String
-  airline        String
-  origin         String
-  destination    String
-  departureTime  DateTime
-  arrivalTime    DateTime
-  duration       Int
-  price          Decimal    @db.Decimal(10, 2)
-  totalSeats     Int
-  availableSeats Int
-  cabinClass     CabinClass @default(ECONOMY)
-  stops          Int        @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id              String        @id @default(uuid())
+  flightNumber    String
+  airline         String
+  origin          String
+  destination     String
+  departureTime   DateTime
+  arrivalTime     DateTime
+  duration        Int
+  price           Decimal       @db.Decimal(10, 2)
+  totalSeats      Int
+  availableSeats  Int
+  cabinClass      CabinClass    @default(ECONOMY)
+  stops           Int           @default(0)
+  status          ContentStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   bookings Booking[]
 
@@ -46,16 +48,18 @@ model Flight {
 }
 
 model Hotel {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  city        String
-  address     String
-  starRating  Int
-  amenities   String[]
-  images      String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  city            String
+  address         String
+  starRating      Int
+  amenities       String[]
+  images          String[]
+  status          ContentStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   rooms    Room[]
   bookings Booking[]
@@ -85,19 +89,21 @@ model Room {
 }
 
 model Train {
-  id             String   @id @default(uuid())
-  trainNumber    String
-  trainName      String
-  origin         String
-  destination    String
-  departureTime  DateTime
-  arrivalTime    DateTime
-  duration       Int
-  classes        Json
-  totalSeats     Int
-  availableSeats Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String        @id @default(uuid())
+  trainNumber     String
+  trainName       String
+  origin          String
+  destination     String
+  departureTime   DateTime
+  arrivalTime     DateTime
+  duration        Int
+  classes         Json
+  totalSeats      Int
+  availableSeats  Int
+  status          ContentStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   bookings Booking[]
 
@@ -105,20 +111,22 @@ model Train {
 }
 
 model Bus {
-  id             String   @id @default(uuid())
-  operator       String
-  busType        String
-  origin         String
-  destination    String
-  departureTime  DateTime
-  arrivalTime    DateTime
-  duration       Int
-  price          Decimal  @db.Decimal(10, 2)
-  totalSeats     Int
-  availableSeats Int
-  amenities      String[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String        @id @default(uuid())
+  operator        String
+  busType         String
+  origin          String
+  destination     String
+  departureTime   DateTime
+  arrivalTime     DateTime
+  duration        Int
+  price           Decimal       @db.Decimal(10, 2)
+  totalSeats      Int
+  availableSeats  Int
+  amenities       String[]
+  status          ContentStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   bookings Booking[]
 
@@ -204,10 +212,36 @@ model Review {
   @@map("reviews")
 }
 
+model HolidayPackage {
+  id              String        @id @default(uuid())
+  title           String
+  description     String?
+  duration        Int
+  price           Decimal       @db.Decimal(10, 2)
+  originalPrice   Decimal?      @db.Decimal(10, 2)
+  city            String
+  images          String[]
+  tags            String[]
+  highlights      String[]
+  isActive        Boolean       @default(true)
+  status          ContentStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("holiday_packages")
+}
+
 enum Role {
   USER
   MANAGER
   ADMIN
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum BookingType {
@@ -238,22 +272,4 @@ enum CabinClass {
   PREMIUM_ECONOMY
   BUSINESS
   FIRST
-}
-
-model HolidayPackage {
-  id            String   @id @default(uuid())
-  title         String
-  description   String?
-  duration      Int
-  price         Decimal  @db.Decimal(10, 2)
-  originalPrice Decimal? @db.Decimal(10, 2)
-  city          String
-  images        String[]
-  tags          String[]
-  highlights    String[]
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("holiday_packages")
 }

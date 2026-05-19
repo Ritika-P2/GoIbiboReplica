@@ -43,4 +43,18 @@ async function deleteBus(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { searchBuses, getBusById, listBuses, createBus, updateBus, deleteBus }
+async function approveBus(req, res, next) {
+  try {
+    const bus = await busService.approveBus(req.params.id)
+    res.json(successResponse('Bus approved.', { bus }))
+  } catch (err) { next(err) }
+}
+
+async function rejectBus(req, res, next) {
+  try {
+    const bus = await busService.rejectBus(req.params.id, req.body.reason)
+    res.json(successResponse('Bus rejected.', { bus }))
+  } catch (err) { next(err) }
+}
+
+module.exports = { searchBuses, getBusById, listBuses, createBus, updateBus, deleteBus, approveBus, rejectBus }

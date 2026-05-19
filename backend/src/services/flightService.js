@@ -11,6 +11,7 @@ async function searchFlights(query) {
   endOfDay.setHours(23, 59, 59, 999)
 
   const where = {
+    status:      'APPROVED',
     origin:      { equals: origin.toUpperCase(),      mode: 'insensitive' },
     destination: { equals: destination.toUpperCase(), mode: 'insensitive' },
     departureTime: { gte: startOfDay, lte: endOfDay },
@@ -36,19 +37,16 @@ async function searchFlights(query) {
 
 async function getFlightById(id) {
   const flight = await prisma.flight.findUnique({ where: { id } })
-  if (!flight) {
-    const err = new Error('Flight not found.')
-    err.status = 404
-    throw err
-  }
+  if (!flight) { const err = new Error('Flight not found.'); err.status = 404; throw err }
   return flight
 }
 
 async function listFlights(query) {
   const { page, limit, skip } = getPagination(query)
+  const where = query.status ? { status: query.status } : {}
   const [total, flights] = await Promise.all([
-    prisma.flight.count(),
-    prisma.flight.findMany({ skip, take: limit, orderBy: { departureTime: 'asc' } }),
+    prisma.flight.count({ where }),
+    prisma.flight.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
   ])
   return { flights, meta: getPaginationMeta(total, page, limit) }
 }
@@ -68,6 +66,7 @@ async function createFlight(data) {
       availableSeats: Number(data.availableSeats),
       cabinClass:     data.cabinClass || 'ECONOMY',
       stops:          Number(data.stops) || 0,
+      status:         'PENDING',
     },
   })
 }
@@ -97,4 +96,16 @@ async function deleteFlight(id) {
   await prisma.flight.delete({ where: { id } })
 }
 
-module.exports = { searchFlights, getFlightById, listFlights, createFlight, updateFlight, deleteFlight }
+async function approveFlight(id) {
+  const flight = await prisma.flight.findUnique({ where: { id } })
+  if (!flight) { const err = new Error('Flight not found.'); err.status = 404; throw err }
+  return prisma.flight.update({ where: { id }, data: { status: 'APPROVED', rejectionReason: null } })
+}
+
+async function rejectFlight(id, reason) {
+  const flight = await prisma.flight.findUnique({ where: { id } })
+  if (!flight) { const err = new Error('Flight not found.'); err.status = 404; throw err }
+  return prisma.flight.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason || null } })
+}
+
+module.exports = { searchFlights, getFlightById, listFlights, createFlight, updateFlight, deleteFlight, approveFlight, rejectFlight }

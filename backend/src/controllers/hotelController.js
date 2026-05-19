@@ -50,4 +50,18 @@ async function deleteHotel(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel }
+async function approveHotel(req, res, next) {
+  try {
+    const hotel = await hotelService.approveHotel(req.params.id)
+    res.json(successResponse('Hotel approved.', { hotel }))
+  } catch (err) { next(err) }
+}
+
+async function rejectHotel(req, res, next) {
+  try {
+    const hotel = await hotelService.rejectHotel(req.params.id, req.body.reason)
+    res.json(successResponse('Hotel rejected.', { hotel }))
+  } catch (err) { next(err) }
+}
+
+module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel, approveHotel, rejectHotel }

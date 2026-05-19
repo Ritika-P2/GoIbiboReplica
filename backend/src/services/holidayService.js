@@ -3,7 +3,14 @@ const { getPagination, getPaginationMeta } = require('../utils/pagination')
 
 async function listPackages(query) {
   const { page, limit, skip } = getPagination(query)
-  const where = query.all ? {} : { isActive: true }
+  let where
+  if (query.status) {
+    where = { status: query.status }
+  } else if (query.all) {
+    where = {}
+  } else {
+    where = { isActive: true, status: 'APPROVED' }
+  }
   const [total, packages] = await Promise.all([
     prisma.holidayPackage.count({ where }),
     prisma.holidayPackage.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
@@ -31,6 +38,7 @@ async function createPackage(data) {
       tags:          splitCSV(data.tags),
       highlights:    splitCSV(data.highlights),
       isActive:      data.isActive !== false,
+      status:        'PENDING',
     },
   })
 }
@@ -59,4 +67,16 @@ async function deletePackage(id) {
   await prisma.holidayPackage.delete({ where: { id } })
 }
 
-module.exports = { listPackages, getPackageById, createPackage, updatePackage, deletePackage }
+async function approvePackage(id) {
+  const pkg = await prisma.holidayPackage.findUnique({ where: { id } })
+  if (!pkg) { const err = new Error('Package not found.'); err.status = 404; throw err }
+  return prisma.holidayPackage.update({ where: { id }, data: { status: 'APPROVED', rejectionReason: null } })
+}
+
+async function rejectPackage(id, reason) {
+  const pkg = await prisma.holidayPackage.findUnique({ where: { id } })
+  if (!pkg) { const err = new Error('Package not found.'); err.status = 404; throw err }
+  return prisma.holidayPackage.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason || null } })
+}
+
+module.exports = { listPackages, getPackageById, createPackage, updatePackage, deletePackage, approvePackage, rejectPackage }

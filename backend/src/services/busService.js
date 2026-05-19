@@ -11,6 +11,7 @@ async function searchBuses(query) {
   endOfDay.setHours(23, 59, 59, 999)
 
   const where = {
+    status:        'APPROVED',
     origin:        { contains: origin,      mode: 'insensitive' },
     destination:   { contains: destination, mode: 'insensitive' },
     departureTime: { gte: startOfDay, lte: endOfDay },
@@ -45,9 +46,10 @@ async function getBusById(id) {
 
 async function listBuses(query) {
   const { page, limit, skip } = getPagination(query)
+  const where = query.status ? { status: query.status } : {}
   const [total, buses] = await Promise.all([
-    prisma.bus.count(),
-    prisma.bus.findMany({ skip, take: limit, orderBy: { departureTime: 'asc' } }),
+    prisma.bus.count({ where }),
+    prisma.bus.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
   ])
   return { buses, meta: getPaginationMeta(total, page, limit) }
 }
@@ -67,6 +69,7 @@ async function createBus(data) {
       totalSeats:     Number(data.totalSeats),
       availableSeats: Number(data.availableSeats),
       amenities:      splitCSV(data.amenities),
+      status:         'PENDING',
     },
   })
 }
@@ -96,4 +99,16 @@ async function deleteBus(id) {
   await prisma.bus.delete({ where: { id } })
 }
 
-module.exports = { searchBuses, getBusById, listBuses, createBus, updateBus, deleteBus }
+async function approveBus(id) {
+  const bus = await prisma.bus.findUnique({ where: { id } })
+  if (!bus) { const err = new Error('Bus not found.'); err.status = 404; throw err }
+  return prisma.bus.update({ where: { id }, data: { status: 'APPROVED', rejectionReason: null } })
+}
+
+async function rejectBus(id, reason) {
+  const bus = await prisma.bus.findUnique({ where: { id } })
+  if (!bus) { const err = new Error('Bus not found.'); err.status = 404; throw err }
+  return prisma.bus.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason || null } })
+}
+
+module.exports = { searchBuses, getBusById, listBuses, createBus, updateBus, deleteBus, approveBus, rejectBus }

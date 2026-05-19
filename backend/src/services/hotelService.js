@@ -6,6 +6,7 @@ async function searchHotels(query) {
   const { page, limit, skip } = getPagination(query)
 
   const where = {
+    status: 'APPROVED',
     city: { contains: city, mode: 'insensitive' },
     rooms: {
       some: {
@@ -26,16 +27,10 @@ async function searchHotels(query) {
   const [total, hotels] = await Promise.all([
     prisma.hotel.count({ where }),
     prisma.hotel.findMany({
-      where,
-      skip,
-      take: limit,
+      where, skip, take: limit,
       orderBy: { starRating: 'desc' },
       include: {
-        rooms: {
-          where: { availableRooms: { gt: 0 } },
-          orderBy: { pricePerNight: 'asc' },
-          take: 1,
-        },
+        rooms:   { where: { availableRooms: { gt: 0 } }, orderBy: { pricePerNight: 'asc' }, take: 1 },
         reviews: { select: { rating: true } },
       },
     }),
@@ -64,39 +59,27 @@ async function getHotelById(id) {
       },
     },
   })
-  if (!hotel) {
-    const err = new Error('Hotel not found.')
-    err.status = 404
-    throw err
-  }
-
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
   const avgRating = hotel.reviews.length
     ? (hotel.reviews.reduce((s, r) => s + r.rating, 0) / hotel.reviews.length).toFixed(1)
     : null
-
   return { ...hotel, avgRating: avgRating ? Number(avgRating) : null }
 }
 
 async function getHotelRooms(hotelId, query) {
   const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } })
-  if (!hotel) {
-    const err = new Error('Hotel not found.')
-    err.status = 404
-    throw err
-  }
-
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
   const where = { hotelId, availableRooms: { gt: 0 } }
   if (query.capacity) where.capacity = { gte: Number(query.capacity) }
-
-  const rooms = await prisma.room.findMany({ where, orderBy: { pricePerNight: 'asc' } })
-  return rooms
+  return prisma.room.findMany({ where, orderBy: { pricePerNight: 'asc' } })
 }
 
 async function listHotels(query) {
   const { page, limit, skip } = getPagination(query)
+  const where = query.status ? { status: query.status } : {}
   const [total, hotels] = await Promise.all([
-    prisma.hotel.count(),
-    prisma.hotel.findMany({ skip, take: limit, orderBy: { createdAt: 'desc' }, include: { rooms: true } }),
+    prisma.hotel.count({ where }),
+    prisma.hotel.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { rooms: true } }),
   ])
   return { hotels, meta: getPaginationMeta(total, page, limit) }
 }
@@ -106,23 +89,18 @@ async function createHotel(data) {
   const splitCSV = (v) => Array.isArray(v) ? v : (v || '').split(',').map(s => s.trim()).filter(Boolean)
   return prisma.hotel.create({
     data: {
-      name:        hotelData.name,
-      description: hotelData.description || null,
-      city:        hotelData.city,
-      address:     hotelData.address,
-      starRating:  Number(hotelData.starRating),
-      amenities:   splitCSV(hotelData.amenities),
-      images:      splitCSV(hotelData.images),
+      name: hotelData.name, description: hotelData.description || null,
+      city: hotelData.city, address: hotelData.address,
+      starRating: Number(hotelData.starRating),
+      amenities: splitCSV(hotelData.amenities),
+      images:    splitCSV(hotelData.images),
+      status: 'PENDING',
       rooms: {
         create: rooms.map(r => ({
-          type:           r.type,
-          description:    r.description || null,
-          pricePerNight:  Number(r.pricePerNight),
-          capacity:       Number(r.capacity),
-          totalRooms:     Number(r.totalRooms),
-          availableRooms: Number(r.totalRooms),
-          amenities:      splitCSV(r.amenities),
-          images:         splitCSV(r.images),
+          type: r.type, description: r.description || null,
+          pricePerNight: Number(r.pricePerNight), capacity: Number(r.capacity),
+          totalRooms: Number(r.totalRooms), availableRooms: Number(r.totalRooms),
+          amenities: splitCSV(r.amenities), images: splitCSV(r.images),
         })),
       },
     },
@@ -151,4 +129,16 @@ async function deleteHotel(id) {
   await prisma.hotel.delete({ where: { id } })
 }
 
-module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel }
+async function approveHotel(id) {
+  const hotel = await prisma.hotel.findUnique({ where: { id } })
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
+  return prisma.hotel.update({ where: { id }, data: { status: 'APPROVED', rejectionReason: null } })
+}
+
+async function rejectHotel(id, reason) {
+  const hotel = await prisma.hotel.findUnique({ where: { id } })
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
+  return prisma.hotel.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason || null } })
+}
+
+module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel, approveHotel, rejectHotel }

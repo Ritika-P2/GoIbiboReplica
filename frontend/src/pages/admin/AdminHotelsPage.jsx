@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminHotelAPI } from '../../services/adminService'
+import { useSelector } from 'react-redux'
+import { adminHotelAPI, approvalAPI } from '../../services/adminService'
 
 const EMPTY_HOTEL = {
   name: '', description: '', city: '', address: '',
@@ -10,27 +11,46 @@ const EMPTY_ROOM = {
   capacity: '2', totalRooms: '10', amenities: '', images: '',
 }
 
+const STATUS_TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
+
+function StatusBadge({ status }) {
+  const styles = {
+    PENDING:  'bg-yellow-100 text-yellow-700',
+    APPROVED: 'bg-green-100 text-green-700',
+    REJECTED: 'bg-red-100 text-red-700',
+  }
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${styles[status] || 'bg-gray-100 text-gray-600'}`}>{status}</span>
+}
+
 export default function AdminHotelsPage() {
-  const [hotels, setHotels]   = useState([])
-  const [meta, setMeta]       = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm]       = useState(EMPTY_HOTEL)
-  const [rooms, setRooms]     = useState([{ ...EMPTY_ROOM }])
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState('')
+  const user = useSelector(s => s.auth.user)
+  const isAdmin = user?.role === 'ADMIN'
+
+  const [hotels, setHotels]           = useState([])
+  const [meta, setMeta]               = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [showForm, setShowForm]       = useState(false)
+  const [editing, setEditing]         = useState(null)
+  const [form, setForm]               = useState(EMPTY_HOTEL)
+  const [rooms, setRooms]             = useState([{ ...EMPTY_ROOM }])
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState('')
+  const [success, setSuccess]         = useState('')
+  const [rejectModal, setRejectModal] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await adminHotelAPI.list({ limit: 50 })
+      const params = { limit: 50 }
+      if (statusFilter !== 'ALL') params.status = statusFilter
+      const res = await adminHotelAPI.list(params)
       setHotels(res.data?.hotels || [])
       setMeta(res.meta)
     } catch { setError('Failed to load hotels.') }
     finally { setLoading(false) }
-  }, [])
+  }, [statusFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -59,7 +79,7 @@ export default function AdminHotelsPage() {
       const payload = { ...form, ...(editing ? {} : { rooms }) }
       if (editing) await adminHotelAPI.update(editing, payload)
       else await adminHotelAPI.create(payload)
-      setSuccess(editing ? 'Hotel updated!' : 'Hotel added!')
+      setSuccess(editing ? 'Hotel updated!' : 'Hotel added! Pending approval.')
       setShowForm(false); load()
     } catch (err) {
       setError(err.response?.data?.message || 'Save failed.')
@@ -72,14 +92,37 @@ export default function AdminHotelsPage() {
     catch { setError('Delete failed.') }
   }
 
+  async function handleApprove(id) {
+    try { await approvalAPI.approve('hotels', id); setSuccess('Hotel approved.'); load() }
+    catch { setError('Approval failed.') }
+  }
+
+  async function handleReject() {
+    try {
+      await approvalAPI.reject('hotels', rejectModal.id, rejectReason)
+      setSuccess('Hotel rejected.')
+      setRejectModal(null)
+      load()
+    } catch { setError('Rejection failed.') }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Hotels</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{meta?.total ?? '—'} hotels in database</p>
+          <p className="text-sm text-gray-500 mt-0.5">{meta?.total ?? '—'} entries</p>
         </div>
         <button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">+ Add Hotel</button>
+      </div>
+
+      <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
+        {STATUS_TABS.map(tab => (
+          <button key={tab} onClick={() => setStatusFilter(tab)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${statusFilter === tab ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {tab}
+          </button>
+        ))}
       </div>
 
       {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{success}</div>}
@@ -151,13 +194,13 @@ export default function AdminHotelsPage() {
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading…</div>
       ) : hotels.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">No hotels yet. Add one above.</div>
+        <div className="text-center py-12 text-gray-400">No hotels found.</div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name','City','Stars','Rooms','Amenities','Actions'].map(h => (
+                {['Name','City','Stars','Rooms','Status','Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -169,17 +212,46 @@ export default function AdminHotelsPage() {
                   <td className="px-4 py-3 text-gray-600">{h.city}</td>
                   <td className="px-4 py-3">{'★'.repeat(h.starRating)}</td>
                   <td className="px-4 py-3 text-gray-600">{h.rooms?.length ?? 0} types</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{(h.amenities || []).slice(0, 3).join(', ')}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-1">
+                      <StatusBadge status={h.status} />
+                      {h.status === 'REJECTED' && h.rejectionReason && (
+                        <span className="text-xs text-red-500 italic">{h.rejectionReason}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
                       <button onClick={() => openEdit(h)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
                       <button onClick={() => handleDelete(h.id)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                      {isAdmin && h.status === 'PENDING' && (
+                        <>
+                          <button onClick={() => handleApprove(h.id)} className="text-xs text-green-600 hover:underline font-medium">Approve</button>
+                          <button onClick={() => { setRejectModal(h); setRejectReason('') }} className="text-xs text-red-600 hover:underline font-medium">Reject</button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {rejectModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-bold text-gray-900 mb-2">Reject Hotel</h3>
+            <p className="text-sm text-gray-500 mb-3">{rejectModal.name} — {rejectModal.city}</p>
+            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection (optional)"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-red-400" />
+            <div className="flex gap-3 mt-4">
+              <button onClick={handleReject} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Reject</button>
+              <button onClick={() => setRejectModal(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

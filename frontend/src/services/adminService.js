@@ -39,3 +39,9 @@ export const adminHolidayAPI = {
   update: (id, data) => api.put(`/holidays/${id}`, data),
   remove: (id)     => api.delete(`/holidays/${id}`),
 }
+
+// ── Approval ──────────────────────────────────────────────────────────────────
+export const approvalAPI = {
+  approve: (resource, id)         => api.post(`/${resource}/${id}/approve`),
+  reject:  (resource, id, reason) => api.post(`/${resource}/${id}/reject`, { reason }),
+}

@@ -43,4 +43,18 @@ async function deleteTrain(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { searchTrains, getTrainById, listTrains, createTrain, updateTrain, deleteTrain }
+async function approveTrain(req, res, next) {
+  try {
+    const train = await trainService.approveTrain(req.params.id)
+    res.json(successResponse('Train approved.', { train }))
+  } catch (err) { next(err) }
+}
+
+async function rejectTrain(req, res, next) {
+  try {
+    const train = await trainService.rejectTrain(req.params.id, req.body.reason)
+    res.json(successResponse('Train rejected.', { train }))
+  } catch (err) { next(err) }
+}
+
+module.exports = { searchTrains, getTrainById, listTrains, createTrain, updateTrain, deleteTrain, approveTrain, rejectTrain }

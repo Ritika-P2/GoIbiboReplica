@@ -36,4 +36,18 @@ async function deletePackage(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { listPackages, getPackageById, createPackage, updatePackage, deletePackage }
+async function approvePackage(req, res, next) {
+  try {
+    const pkg = await holidayService.approvePackage(req.params.id)
+    res.json(successResponse('Package approved.', { package: pkg }))
+  } catch (err) { next(err) }
+}
+
+async function rejectPackage(req, res, next) {
+  try {
+    const pkg = await holidayService.rejectPackage(req.params.id, req.body.reason)
+    res.json(successResponse('Package rejected.', { package: pkg }))
+  } catch (err) { next(err) }
+}
+
+module.exports = { listPackages, getPackageById, createPackage, updatePackage, deletePackage, approvePackage, rejectPackage }
