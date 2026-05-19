@@ -1,0 +1,31 @@
+{
+  "name": "goibibo",
+  "version": "1.0.0",
+  "description": "Goibibo full-stack travel booking platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend":  "npm run dev      --workspace=frontend",
+    "dev:backend":   "npm run dev      --workspace=backend",
+    "dev":           "concurrently -n BACKEND,FRONTEND -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build":         "npm run build    --workspace=frontend",
+    "preview":       "npm run preview  --workspace=frontend",
+    "start:backend": "npm run start    --workspace=backend",
+    "test":          "npm run test     --workspace=backend",
+    "test:unit":     "npm run test:unit        --workspace=backend",
+    "test:integration": "npm run test:integration --workspace=backend",
+    "lint:frontend": "npm run lint     --workspace=frontend",
+    "lint:backend":  "npm run lint     --workspace=backend",
+    "lint":          "npm run lint:frontend && npm run lint:backend",
+    "db:migrate":    "npm run db:migrate  --workspace=backend",
+    "db:generate":   "npm run db:generate --workspace=backend",
+    "db:seed":       "npm run db:seed     --workspace=backend",
+    "db:studio":     "npm run db:studio   --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
