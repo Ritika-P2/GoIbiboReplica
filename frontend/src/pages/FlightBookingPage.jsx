@@ -93,7 +93,7 @@ export default function FlightBookingPage() {
     setCouponError('')
     try {
       const res = await couponService.validate(couponInput.trim().toUpperCase(), baseFare)
-      const { code, discount, description } = res
+      const { code, discount, description } = res.data
       setCouponCode(code)
       setCouponDiscount(discount)
       setCouponDesc(description)

@@ -1,123 +1,181 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import HotelCard from '../components/hotels/HotelCard'
 import HotelFilters from '../components/hotels/HotelFilters'
 import Loader from '../components/common/Loader'
 import { hotelService } from '../services/hotelService'
+import HotelSearch from '../components/hotels/HotelSearch'
+
+const SORT_TABS = [
+  { id: 'rating',    label: 'TOP RATED',     icon: '⭐' },
+  { id: 'price',     label: 'LOWEST PRICE',  icon: '₹'  },
+  { id: 'stars',     label: 'STAR CATEGORY', icon: '🏆' },
+]
 
 export default function HotelResultsPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
-  const city     = searchParams.get('city') || ''
-  const checkIn  = searchParams.get('checkIn') || ''
+  const city     = searchParams.get('city')     || ''
+  const checkIn  = searchParams.get('checkIn')  || ''
   const checkOut = searchParams.get('checkOut') || ''
-  const guests   = searchParams.get('guests') || 1
+  const guests   = searchParams.get('guests')   || 1
+  const rooms    = searchParams.get('rooms')    || 1
 
   const nights = checkIn && checkOut
     ? Math.max(1, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000))
     : 1
 
-  const [hotels,  setHotels]  = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(null)
-  const [sortBy,  setSortBy]  = useState('rating')
-  const [filters, setFilters] = useState({ starRating: [], maxPrice: 100000 })
+  const [hotels,     setHotels]     = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(null)
+  const [sortBy,     setSortBy]     = useState('rating')
+  const [filters,    setFilters]    = useState({ starRating: [], maxPrice: 100000, minRating: 0, budgetRange: '' })
+  const [showSearch, setShowSearch] = useState(false)
 
   const fetchHotels = useCallback(async () => {
     if (!city) return
     setLoading(true)
     setError(null)
     try {
-      const params = {
-        city, guests,
-        ...(checkIn  ? { checkIn  } : {}),
-        ...(checkOut ? { checkOut } : {}),
-        maxPrice: filters.maxPrice,
-        ...(filters.starRating.length > 0 ? { starRating: Math.min(...filters.starRating) } : {}),
-      }
-      const res = await hotelService.search(params)
+      const res = await hotelService.search({ city, guests, checkIn, checkOut })
       setHotels(res.data.hotels || [])
     } catch {
       setError('Failed to fetch hotels. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [city, checkIn, checkOut, guests, filters])
+  }, [city, checkIn, checkOut, guests])
 
   useEffect(() => { fetchHotels() }, [fetchHotels])
 
-  const sorted = [...hotels].sort((a, b) => {
+  // Client-side filter
+  const filtered = hotels.filter(h => {
+    const price = Number(h.rooms?.[0]?.pricePerNight || 0)
+    if (filters.starRating.length > 0 && !filters.starRating.includes(h.starRating)) return false
+    if (price > Number(filters.maxPrice)) return false
+    if (filters.minRating > 0 && (h.avgRating || 0) < filters.minRating) return false
+    return true
+  })
+
+  const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'rating') return (b.avgRating || 0) - (a.avgRating || 0)
-    if (sortBy === 'price') {
-      const pa = Number(a.rooms?.[0]?.pricePerNight || 0)
-      const pb = Number(b.rooms?.[0]?.pricePerNight || 0)
-      return pa - pb
-    }
-    if (sortBy === 'stars') return b.starRating - a.starRating
+    if (sortBy === 'price')  return Number(a.rooms?.[0]?.pricePerNight || 0) - Number(b.rooms?.[0]?.pricePerNight || 0)
+    if (sortBy === 'stars')  return b.starRating - a.starRating
     return 0
   })
 
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short' }) : ''
+  function fmtDate(d) {
+    return d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+  }
+
+  const cheapestPrice = filtered.length > 0
+    ? Math.min(...filtered.map(h => Number(h.rooms?.[0]?.pricePerNight || 0)).filter(p => p > 0))
+    : null
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Hotels in {city}</h1>
-        <p className="text-gray-500 mt-1">
-          {checkIn && checkOut ? `${fmtDate(checkIn)} – ${fmtDate(checkOut)} · ${nights} night${nights > 1 ? 's' : ''}` : ''}
-          {guests ? ` · ${guests} guest${guests > 1 ? 's' : ''}` : ''}
-        </p>
+    <div className="min-h-screen bg-gray-100">
+      {/* Sticky orange header */}
+      <div className="bg-gradient-to-b from-orange-500 to-orange-400 sticky top-0 z-30 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          {!showSearch ? (
+            <button onClick={() => setShowSearch(true)}
+              className="w-full bg-white/10 hover:bg-white/20 rounded-xl px-5 py-3 text-white text-left transition-colors">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="font-bold text-lg">🏨 {city}</span>
+                <span className="text-orange-100 text-sm">|</span>
+                {checkIn && checkOut && (
+                  <>
+                    <span className="text-orange-100 text-sm">{fmtDate(checkIn)} – {fmtDate(checkOut)}</span>
+                    <span className="text-orange-100 text-sm">|</span>
+                    <span className="text-orange-100 text-sm">{nights} night{nights !== 1 ? 's' : ''}</span>
+                    <span className="text-orange-100 text-sm">|</span>
+                  </>
+                )}
+                <span className="text-orange-100 text-sm">{guests} Guest{guests > 1 ? 's' : ''} · {rooms} Room{rooms > 1 ? 's' : ''}</span>
+                <span className="ml-auto text-xs underline text-orange-100">Modify Search ▼</span>
+              </div>
+            </button>
+          ) : (
+            <div className="bg-white rounded-2xl p-5 shadow-xl">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-900">Modify Search</h3>
+                <button onClick={() => setShowSearch(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+              </div>
+              <HotelSearch initialValues={{ city, checkIn, checkOut, guests, rooms }} onSearch={() => setShowSearch(false)} />
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Filters */}
-        <aside className="hidden lg:block w-64 shrink-0">
-          <HotelFilters filters={filters} onChange={setFilters} />
-        </aside>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex gap-4">
 
-        {/* Results */}
-        <div className="flex-1 min-w-0">
-          {!loading && hotels.length > 0 && (
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500">{hotels.length} hotels found</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Sort by:</span>
-                {[{ k:'rating', l:'Rating' }, { k:'price', l:'Price' }, { k:'stars', l:'Stars' }].map(s => (
-                  <button key={s.k} onClick={() => setSortBy(s.k)}
-                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${sortBy === s.k ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                    {s.l}
-                  </button>
-                ))}
+          {/* Sidebar filters */}
+          <aside className="hidden lg:block w-60 shrink-0">
+            <HotelFilters filters={filters} onChange={setFilters} />
+          </aside>
+
+          {/* Main results */}
+          <div className="flex-1 min-w-0 space-y-3">
+
+            {/* Sort tabs */}
+            {!loading && hotels.length > 0 && (
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="flex">
+                    {SORT_TABS.map(tab => (
+                      <button key={tab.id} onClick={() => setSortBy(tab.id)}
+                        className={`flex-1 flex flex-col items-center py-3 px-2 border-b-2 text-xs transition-colors ${sortBy === tab.id ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}>
+                        <span className="font-bold text-xs uppercase tracking-wide">{tab.label}</span>
+                        {tab.id === 'price' && cheapestPrice != null && cheapestPrice > 0 && (
+                          <span className={`text-xs mt-0.5 font-semibold ${sortBy === tab.id ? 'text-orange-500' : 'text-gray-400'}`}>
+                            from ₹{cheapestPrice.toLocaleString('en-IN')}/night
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-sm text-gray-500">
+                    <span className="font-semibold text-gray-800">{sorted.length}</span> hotels in {city}
+                    {filtered.length !== hotels.length && (
+                      <span className="text-orange-500 ml-1">(filtered from {hotels.length})</span>
+                    )}
+                  </p>
+                  {checkIn && checkOut && (
+                    <p className="text-xs text-gray-400">
+                      {fmtDate(checkIn)} – {fmtDate(checkOut)} · {nights} night{nights !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {loading && <Loader text="Searching hotels..." />}
+
+            {!loading && error && (
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <p className="text-red-500 text-lg">{error}</p>
+                <button onClick={fetchHotels} className="mt-4 text-orange-500 hover:underline text-sm">Try again</button>
               </div>
-            </div>
-          )}
+            )}
 
-          {loading && <Loader text="Searching hotels..." />}
+            {!loading && !error && sorted.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <div className="text-6xl mb-4">🏨</div>
+                <h2 className="text-xl font-semibold text-gray-700">No hotels found</h2>
+                <p className="text-gray-400 mt-2">Try a different city or adjust your filters.</p>
+              </div>
+            )}
 
-          {!loading && error && (
-            <div className="text-center py-16">
-              <p className="text-red-500 text-lg">{error}</p>
-              <button onClick={fetchHotels} className="mt-4 text-blue-600 hover:underline text-sm">Try again</button>
-            </div>
-          )}
-
-          {!loading && !error && sorted.length === 0 && (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4">🏨</div>
-              <h2 className="text-xl font-semibold text-gray-700">No hotels found</h2>
-              <p className="text-gray-400 mt-2">Try a different city or adjust your filters.</p>
-            </div>
-          )}
-
-          {!loading && !error && (
-            <div className="space-y-4">
-              {sorted.map(h => (
-                <HotelCard key={h.id} hotel={h}
-                  searchParams={{ city, checkIn, checkOut, guests, nights }} />
-              ))}
-            </div>
-          )}
+            {!loading && !error && sorted.map(h => (
+              <HotelCard key={h.id} hotel={h}
+                searchParams={{ city, checkIn, checkOut, guests, rooms, nights }} />
+            ))}
+          </div>
         </div>
       </div>
     </div>

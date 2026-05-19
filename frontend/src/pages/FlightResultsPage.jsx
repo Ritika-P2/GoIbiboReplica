@@ -54,7 +54,7 @@ export default function FlightResultsPage() {
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(null)
   const [sortBy,     setSortBy]     = useState('cheapest')
-  const [filters,    setFilters]    = useState({ stops: '', maxPrice: 50000, airlines: [] })
+  const [filters,    setFilters]    = useState({ stops: '', maxPrice: 50000, airlines: [], departureRange: '' })
   const [showSearch, setShowSearch] = useState(false)
 
   // date slider prices (cheapest per date — populated from API results for current date, mock for others)
@@ -65,12 +65,7 @@ export default function FlightResultsPage() {
     if (!origin || !destination || !date) return
     setLoading(true); setError(null)
     try {
-      const params = {
-        origin, destination, date,
-        ...(filters.stops !== '' ? { stops: filters.stops } : {}),
-        maxPrice: filters.maxPrice,
-        ...(filters.airlines.length === 1 ? { airline: filters.airlines[0] } : {}),
-      }
+      const params = { origin, destination, date }
       const res = await flightService.search(params)
       const list = res.data.flights || []
       setFlights(list)
@@ -91,7 +86,7 @@ export default function FlightResultsPage() {
     } finally {
       setLoading(false)
     }
-  }, [origin, destination, date, filters])
+  }, [origin, destination, date])
 
   useEffect(() => { fetchFlights() }, [fetchFlights])
 
@@ -106,9 +101,14 @@ export default function FlightResultsPage() {
   }
 
   const filtered = flights.filter(f => {
-    if (filters.stops !== '' && String(f.stops) !== String(filters.stops)) return false
+    if (filters.stops !== '' && Number(f.stops) !== Number(filters.stops)) return false
     if (Number(f.price) > Number(filters.maxPrice)) return false
     if (filters.airlines.length > 0 && !filters.airlines.includes(f.airline)) return false
+    if (filters.departureRange) {
+      const hour = new Date(f.departureTime).getHours()
+      if (filters.departureRange === 'early-morning' && !(hour >= 0 && hour < 6)) return false
+      if (filters.departureRange === 'morning' && !(hour >= 6 && hour < 12)) return false
+    }
     return true
   })
 
@@ -239,7 +239,9 @@ export default function FlightResultsPage() {
                 {/* Early Morning */}
                 <label className="flex items-center justify-between py-1.5 cursor-pointer group">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" className="accent-orange-500 rounded" />
+                    <input type="checkbox" checked={filters.departureRange === 'early-morning'}
+                      onChange={e => setFilters(f => ({ ...f, departureRange: e.target.checked ? 'early-morning' : '' }))}
+                      className="accent-orange-500 rounded" />
                     <span className="text-sm text-gray-700 group-hover:text-orange-600">Early Morning</span>
                   </div>
                   <span className="text-xs text-gray-400">00:00–06:00</span>
@@ -248,7 +250,9 @@ export default function FlightResultsPage() {
                 {/* Morning */}
                 <label className="flex items-center justify-between py-1.5 cursor-pointer group">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" className="accent-orange-500 rounded" />
+                    <input type="checkbox" checked={filters.departureRange === 'morning'}
+                      onChange={e => setFilters(f => ({ ...f, departureRange: e.target.checked ? 'morning' : '' }))}
+                      className="accent-orange-500 rounded" />
                     <span className="text-sm text-gray-700 group-hover:text-orange-600">Morning</span>
                   </div>
                   <span className="text-xs text-gray-400">06:00–12:00</span>
@@ -297,8 +301,8 @@ export default function FlightResultsPage() {
               </div>
             </div>
 
-            {(filters.stops !== '' || filters.airlines.length > 0 || Number(filters.maxPrice) < 50000) && (
-              <button onClick={() => setFilters({ stops: '', maxPrice: 50000, airlines: [] })}
+            {(filters.stops !== '' || filters.airlines.length > 0 || Number(filters.maxPrice) < 50000 || filters.departureRange !== '') && (
+              <button onClick={() => setFilters({ stops: '', maxPrice: 50000, airlines: [], departureRange: '' })}
                 className="w-full text-sm text-orange-600 hover:underline font-medium">
                 Clear all filters
               </button>

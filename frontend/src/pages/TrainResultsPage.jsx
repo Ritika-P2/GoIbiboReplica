@@ -3,46 +3,51 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { trainService } from '../services/trainService'
 import { ROUTES } from '../constants/routes'
 import Loader from '../components/common/Loader'
-import Button from '../components/common/Button'
+import TrainSearch from '../components/trains/TrainSearch'
+import TrainCard from '../components/trains/TrainCard'
+import TrainFilters from '../components/trains/TrainFilters'
 
-const CLASS_LABELS = { SL: 'Sleeper', '3A': 'AC 3 Tier', '2A': 'AC 2 Tier', '1A': 'AC First', CC: 'Chair Car' }
-const CLASS_COLORS = {
-  SL:  'bg-blue-50 text-blue-700 border-blue-200',
-  '3A':'bg-purple-50 text-purple-700 border-purple-200',
-  '2A':'bg-indigo-50 text-indigo-700 border-indigo-200',
-  '1A':'bg-yellow-50 text-yellow-700 border-yellow-200',
-  CC:  'bg-green-50 text-green-700 border-green-200',
+const SORT_TABS = [
+  { id: 'departure',   label: 'DEPARTURE',   icon: '🕐' },
+  { id: 'arrival',     label: 'ARRIVAL',     icon: '🕔' },
+  { id: 'duration',    label: 'DURATION',    icon: '⏱️' },
+  { id: 'availability',label: 'AVAILABILITY',icon: '💺' },
+]
+
+const QUOTA_LABELS = {
+  GN: 'General', LD: 'Ladies', TQ: 'Tatkal', PT: 'Premium Tatkal', SS: 'Senior Citizen', HH: 'Divyaang'
 }
 
-function fmt(dt) {
-  return new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-function fmtDur(mins) {
-  const h = Math.floor(mins / 60), m = mins % 60
-  return `${h}h ${m}m`
+function fmtDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+  })
 }
 
 export default function TrainResultsPage() {
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
+  const navigate       = useNavigate()
 
-  const origin      = searchParams.get('origin') || ''
+  const origin      = searchParams.get('origin')      || ''
   const destination = searchParams.get('destination') || ''
-  const date        = searchParams.get('date') || ''
-  const trainClass  = searchParams.get('trainClass') || ''
+  const date        = searchParams.get('date')        || ''
+  const trainClass  = searchParams.get('trainClass')  || ''
+  const quota       = searchParams.get('quota')       || 'GN'
 
-  const [trains,  setTrains]  = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState(null)
-  const [sortBy,  setSortBy]  = useState('departure')
+  const [trains,     setTrains]     = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(null)
+  const [sortBy,     setSortBy]     = useState('departure')
+  const [filters,    setFilters]    = useState({ departureRange: '', trainTypes: [], availability: '' })
+  const [showSearch, setShowSearch] = useState(false)
 
   const fetchTrains = useCallback(async () => {
     if (!origin || !destination || !date) return
     setLoading(true)
     setError(null)
     try {
-      const params = { origin, destination, date, ...(trainClass ? { trainClass } : {}) }
-      const res = await trainService.search(params)
+      const res = await trainService.search({ origin, destination, date, ...(trainClass ? { trainClass } : {}) })
       setTrains(res.data.trains || [])
     } catch {
       setError('Failed to fetch trains. Please try again.')
@@ -53,149 +58,159 @@ export default function TrainResultsPage() {
 
   useEffect(() => { fetchTrains() }, [fetchTrains])
 
-  const sorted = [...trains].sort((a, b) => {
-    if (sortBy === 'departure') return new Date(a.departureTime) - new Date(b.departureTime)
-    if (sortBy === 'duration')  return a.duration - b.duration
-    if (sortBy === 'seats')     return b.availableSeats - a.availableSeats
+  // Client-side filtering
+  const filtered = trains.filter(t => {
+    if (filters.departureRange) {
+      const h = new Date(t.departureTime).getHours()
+      if (filters.departureRange === 'early'     && !(h >= 0  && h < 6))  return false
+      if (filters.departureRange === 'morning'   && !(h >= 6  && h < 12)) return false
+      if (filters.departureRange === 'afternoon' && !(h >= 12 && h < 18)) return false
+      if (filters.departureRange === 'evening'   && !(h >= 18))           return false
+    }
+    if (filters.trainTypes?.length > 0) {
+      const name = t.trainName?.toLowerCase() || ''
+      const match = filters.trainTypes.some(type => {
+        if (type === 'rajdhani')  return name.includes('rajdhani')
+        if (type === 'shatabdi')  return name.includes('shatabdi')
+        if (type === 'express')   return name.includes('express')
+        if (type === 'superfast') return name.includes('superfast') || name.includes('sf')
+        return false
+      })
+      if (!match) return false
+    }
+    if (filters.availability) {
+      const seats = t.availableSeats || 0
+      if (filters.availability === 'available' && seats <= 0) return false
+      if (filters.availability === 'rac'       && seats > 0)  return false
+    }
+    return true
+  })
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'departure')    return new Date(a.departureTime) - new Date(b.departureTime)
+    if (sortBy === 'arrival')      return new Date(a.arrivalTime)   - new Date(b.arrivalTime)
+    if (sortBy === 'duration')     return a.duration - b.duration
+    if (sortBy === 'availability') return (b.availableSeats || 0) - (a.availableSeats || 0)
     return 0
   })
 
-  const fmtDate = date
-    ? new Date(date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-    : ''
-
   if (!origin || !destination || !date) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <div className="text-6xl mb-4">🚆</div>
         <h2 className="text-xl font-semibold text-gray-700">No search criteria</h2>
-        <p className="text-gray-400 mt-2 mb-6">Please go back and enter your journey details.</p>
-        <Button onClick={() => navigate(ROUTES.TRAINS)}>Search Trains</Button>
+        <p className="text-gray-400 mt-2 mb-6">Please enter your journey details.</p>
+        <button onClick={() => navigate(ROUTES.TRAINS)}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-8 py-3 rounded-full">
+          Search Trains
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{origin} → {destination}</h1>
-        <p className="text-gray-500 mt-1">
-          {fmtDate}
-          {trainClass ? ` · ${CLASS_LABELS[trainClass] || trainClass}` : ' · All Classes'}
-        </p>
+    <div className="min-h-screen bg-gray-100">
+
+      {/* Sticky orange header */}
+      <div className="bg-gradient-to-b from-orange-500 to-orange-400 sticky top-0 z-30 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          {!showSearch ? (
+            <button onClick={() => setShowSearch(true)}
+              className="w-full bg-white/10 hover:bg-white/20 rounded-xl px-5 py-3 text-white text-left transition-colors">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-bold text-lg">🚆 {origin} → {destination}</span>
+                <span className="text-orange-100 text-sm">|</span>
+                <span className="text-orange-100 text-sm">{fmtDate(date)}</span>
+                {trainClass && (
+                  <>
+                    <span className="text-orange-100 text-sm">|</span>
+                    <span className="text-orange-100 text-sm">{trainClass}</span>
+                  </>
+                )}
+                <span className="text-orange-100 text-sm">|</span>
+                <span className="text-orange-100 text-sm">{QUOTA_LABELS[quota] || quota}</span>
+                <span className="ml-auto text-xs underline text-orange-100">Modify Search ▼</span>
+              </div>
+            </button>
+          ) : (
+            <div className="bg-white rounded-2xl p-5 shadow-xl">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-900">Modify Search</h3>
+                <button onClick={() => setShowSearch(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+              </div>
+              <TrainSearch
+                initialValues={{ origin, destination, date, trainClass, quota }}
+                onSearch={() => setShowSearch(false)}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Sort bar */}
-      {!loading && trains.length > 0 && (
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-gray-500">{trains.length} train{trains.length !== 1 ? 's' : ''} found</p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Sort by:</span>
-            {[{ k: 'departure', l: 'Departure' }, { k: 'duration', l: 'Duration' }, { k: 'seats', l: 'Availability' }].map(s => (
-              <button key={s.k} onClick={() => setSortBy(s.k)}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${sortBy === s.k ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                {s.l}
-              </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex gap-4">
+
+          {/* Sidebar filters */}
+          <aside className="hidden lg:block w-56 shrink-0">
+            <TrainFilters filters={filters} onChange={setFilters} />
+          </aside>
+
+          {/* Main results */}
+          <div className="flex-1 min-w-0 space-y-3">
+
+            {/* Sort tabs */}
+            {!loading && trains.length > 0 && (
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="flex">
+                    {SORT_TABS.map(tab => (
+                      <button key={tab.id} onClick={() => setSortBy(tab.id)}
+                        className={`flex-1 flex flex-col items-center py-3 px-2 border-b-2 text-xs transition-colors ${
+                          sortBy === tab.id
+                            ? 'border-orange-500 bg-orange-50 text-orange-600'
+                            : 'border-transparent text-gray-500 hover:bg-gray-50'
+                        }`}>
+                        <span className="font-bold text-xs uppercase tracking-wide">{tab.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-sm text-gray-500">
+                    <span className="font-semibold text-gray-800">{sorted.length}</span> trains found
+                    {filtered.length !== trains.length && (
+                      <span className="text-orange-500 ml-1">(filtered from {trains.length})</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-400">{fmtDate(date)}</p>
+                </div>
+              </>
+            )}
+
+            {loading && <Loader text="Searching trains..." />}
+
+            {!loading && error && (
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <p className="text-red-500 text-lg">{error}</p>
+                <button onClick={fetchTrains} className="mt-4 text-orange-500 hover:underline text-sm">Try again</button>
+              </div>
+            )}
+
+            {!loading && !error && sorted.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
+                <div className="text-6xl mb-4">🚆</div>
+                <h2 className="text-xl font-semibold text-gray-700">No trains found</h2>
+                <p className="text-gray-400 mt-2">Try a different date or adjust your filters.</p>
+              </div>
+            )}
+
+            {!loading && !error && sorted.map(train => (
+              <TrainCard key={train.id} train={train} date={date} quota={quota} />
             ))}
           </div>
         </div>
-      )}
-
-      {loading && <Loader text="Searching trains..." />}
-
-      {!loading && error && (
-        <div className="text-center py-16">
-          <p className="text-red-500 text-lg">{error}</p>
-          <button onClick={fetchTrains} className="mt-4 text-green-600 hover:underline text-sm">Try again</button>
-        </div>
-      )}
-
-      {!loading && !error && sorted.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-6xl mb-4">🚆</div>
-          <h2 className="text-xl font-semibold text-gray-700">No trains found</h2>
-          <p className="text-gray-400 mt-2 mb-6">Try a different date or route.</p>
-          <Button onClick={() => navigate(ROUTES.TRAINS)}>Modify Search</Button>
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="space-y-4">
-          {sorted.map(train => {
-            const classes = train.classes && typeof train.classes === 'object' ? train.classes : {}
-            const classKeys = Object.keys(classes)
-            const cheapestClass = classKeys.reduce((min, k) =>
-              !min || classes[k].price < classes[min].price ? k : min, null)
-
-            return (
-              <div key={train.id} className="bg-white rounded-xl border border-gray-200 hover:shadow-md transition-shadow overflow-hidden">
-                {/* Train header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
-                  {/* Train name + number */}
-                  <div className="sm:w-56 shrink-0">
-                    <p className="font-bold text-gray-900">{train.trainName}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">#{train.trainNumber}</p>
-                    <span className={`inline-flex mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium ${train.availableSeats > 50 ? 'bg-green-100 text-green-700' : train.availableSeats > 10 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                      {train.availableSeats} seats available
-                    </span>
-                  </div>
-
-                  {/* Route + timing */}
-                  <div className="flex flex-1 items-center gap-3">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{fmt(train.departureTime)}</p>
-                      <p className="text-sm font-medium text-gray-600">{train.origin}</p>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center gap-1">
-                      <p className="text-xs text-gray-400">{fmtDur(train.duration)}</p>
-                      <div className="relative w-full flex items-center">
-                        <div className="flex-1 h-px bg-gray-300" />
-                        <span className="mx-2 text-lg">🚆</span>
-                        <div className="flex-1 h-px bg-gray-300" />
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{fmt(train.arrivalTime)}</p>
-                      <p className="text-sm font-medium text-gray-600">{train.destination}</p>
-                    </div>
-                  </div>
-
-                  {/* Starting price */}
-                  {cheapestClass && (
-                    <div className="sm:w-32 text-right shrink-0">
-                      <p className="text-xs text-gray-400">Starts from</p>
-                      <p className="text-2xl font-bold text-green-600">₹{classes[cheapestClass].price}</p>
-                      <p className="text-xs text-gray-400">{CLASS_LABELS[cheapestClass] || cheapestClass}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Class options with Book buttons */}
-                {classKeys.length > 0 && (
-                  <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Select Class & Book</p>
-                    <div className="flex flex-wrap gap-2">
-                      {classKeys.map(cls => (
-                        <button key={cls}
-                          onClick={() => navigate(ROUTES.TRAIN_BOOKING, {
-                            state: { train, selectedClass: cls, classPrice: classes[cls].price, classSeats: classes[cls].seats, date }
-                          })}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all hover:shadow-sm hover:scale-105 ${CLASS_COLORS[cls] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                          <span>{CLASS_LABELS[cls] || cls}</span>
-                          <span className="font-bold">₹{classes[cls].price}</span>
-                          <span className="opacity-60">({classes[cls].seats} seats)</span>
-                          <span className="ml-1 text-current opacity-80">→</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

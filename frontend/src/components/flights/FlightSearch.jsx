@@ -1,26 +1,26 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AirportSearch from '../common/AirportSearch'
 import { ROUTES } from '../../constants/routes'
 
 const SPECIAL_FARES = [
-  { id: 'REGULAR',        label: 'Regular',           sub: 'Regular fares',            selected_color: 'border-blue-600 bg-blue-50 text-blue-700' },
-  { id: 'STUDENT',        label: 'Student',            sub: 'Extra discounts/baggage',  selected_color: 'border-blue-600 bg-blue-50 text-blue-700' },
-  { id: 'ARMED_FORCES',   label: 'Armed Forces',       sub: 'Up to ₹ 600 off',      selected_color: 'border-blue-600 bg-blue-50 text-blue-700' },
-  { id: 'SENIOR_CITIZEN', label: 'Senior Citizen',     sub: 'Up to ₹ 600 off',      selected_color: 'border-blue-600 bg-blue-50 text-blue-700' },
-  { id: 'DOCTOR_NURSE',   label: 'Doctor and Nurses',  sub: 'Up to ₹ 600 off',      selected_color: 'border-blue-600 bg-blue-50 text-blue-700' },
+  { id: 'REGULAR',        label: 'Regular',          sub: 'Regular fares'           },
+  { id: 'STUDENT',        label: 'Student',           sub: 'Extra discounts/baggage' },
+  { id: 'ARMED_FORCES',   label: 'Armed Forces',      sub: 'Up to ₹ 600 off'        },
+  { id: 'SENIOR_CITIZEN', label: 'Senior Citizen',    sub: 'Up to ₹ 600 off'        },
+  { id: 'DOCTOR_NURSE',   label: 'Doctor and Nurses', sub: 'Up to ₹ 600 off'        },
 ]
 
 const CABINS = [
-  { value: 'ECONOMY',         label: 'Economy' },
-  { value: 'PREMIUM_ECONOMY', label: 'Premium Economy' },
-  { value: 'BUSINESS',        label: 'Business' },
-  { value: 'FIRST',           label: 'First Class' },
+  { value: 'ECONOMY',         label: 'Economy'        },
+  { value: 'PREMIUM_ECONOMY', label: 'Premium Economy'},
+  { value: 'BUSINESS',        label: 'Business'       },
+  { value: 'FIRST',           label: 'First Class'    },
 ]
 
 function fmtDateGoibibo(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
+  const d = new Date(dateStr + 'T00:00:00')
   const day = d.getDate()
   const mon = d.toLocaleDateString('en-IN', { month: 'short' })
   const yr  = String(d.getFullYear()).slice(2)
@@ -32,18 +32,31 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
   const navigate = useNavigate()
   const today    = new Date().toISOString().split('T')[0]
 
-  const [tripType,    setTripType]    = useState(initialValues.tripType || 'one-way')
-  const [origin,      setOrigin]      = useState(initialValues.origin || '')
+  const [tripType,    setTripType]    = useState(initialValues.tripType    || 'one-way')
+  const [origin,      setOrigin]      = useState(initialValues.origin      || '')
   const [destination, setDest]        = useState(initialValues.destination || '')
-  const [date,        setDate]        = useState(initialValues.date || today)
-  const [returnDate,  setReturnDate]  = useState(initialValues.returnDate || '')
+  const [date,        setDate]        = useState(initialValues.date        || today)
+  const [returnDate,  setReturnDate]  = useState(initialValues.returnDate  || '')
   const [adults,      setAdults]      = useState(Number(initialValues.passengers) || 1)
-  const [cabin,       setCabin]       = useState(initialValues.cabin || 'ECONOMY')
+  const [cabin,       setCabin]       = useState(initialValues.cabin       || 'ECONOMY')
   const [specialFare, setSF]          = useState(initialValues.specialFare || 'REGULAR')
   const [showPax,     setShowPax]     = useState(false)
-  const [showReturn,  setShowReturn]  = useState(false)
+
+  const departureDateRef = useRef(null)
+  const returnDateRef    = useRef(null)
 
   function swap() { const t = origin; setOrigin(destination); setDest(t) }
+
+  function openDeparture() {
+    try { departureDateRef.current?.showPicker() } catch (e) { departureDateRef.current?.focus() }
+  }
+
+  function openReturn() {
+    if (tripType === 'one-way') setTripType('round-trip')
+    setTimeout(() => {
+      try { returnDateRef.current?.showPicker() } catch (e) { returnDateRef.current?.focus() }
+    }, 0)
+  }
 
   function handleSearch(e) {
     e?.preventDefault()
@@ -100,37 +113,47 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
         </div>
 
         {/* DEPARTURE */}
-        <div className="w-40 shrink-0 px-4 pt-3 pb-3 border-r border-gray-300 hover:bg-gray-50 transition-colors relative cursor-pointer">
-          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">Departure <span className="text-gray-400">▼</span></p>
-          <div className="relative">
-            <p className="text-2xl font-bold text-gray-900 leading-tight">{departureFmt?.primary}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{departureFmt?.secondary}</p>
-            <input type="date" min={today} value={date} onChange={e => setDate(e.target.value)} required
-              className="absolute inset-0 opacity-0 cursor-pointer w-full" />
-          </div>
+        <div className="w-40 shrink-0 px-4 pt-3 pb-3 border-r border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer select-none relative"
+          onClick={openDeparture}>
+          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1 pointer-events-none">
+            Departure <span className="text-gray-400">▼</span>
+          </p>
+          <p className="text-2xl font-bold text-gray-900 leading-tight pointer-events-none">{departureFmt?.primary}</p>
+          <p className="text-xs text-gray-500 mt-0.5 pointer-events-none">{departureFmt?.secondary}</p>
+          <input
+            ref={departureDateRef}
+            type="date"
+            min={today}
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none' }}
+          />
         </div>
 
         {/* RETURN */}
-        <div className="w-44 shrink-0 px-4 pt-3 pb-3 border-r border-gray-300 hover:bg-gray-50 transition-colors relative cursor-pointer"
-          onClick={() => { if (tripType === 'one-way') { setTripType('round-trip'); setShowReturn(true) } else setShowReturn(true) }}>
-          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">Return <span className="text-gray-400">▼</span></p>
+        <div className="w-44 shrink-0 px-4 pt-3 pb-3 border-r border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer select-none relative"
+          onClick={openReturn}>
+          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1 pointer-events-none">
+            Return <span className="text-gray-400">▼</span>
+          </p>
           {returnFmt ? (
-            <div className="relative">
-              <p className="text-2xl font-bold text-gray-900 leading-tight">{returnFmt.primary}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{returnFmt.secondary}</p>
-              <input type="date" min={date} value={returnDate} onChange={e => setReturnDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full" />
-            </div>
+            <>
+              <p className="text-2xl font-bold text-gray-900 leading-tight pointer-events-none">{returnFmt.primary}</p>
+              <p className="text-xs text-gray-500 mt-0.5 pointer-events-none">{returnFmt.secondary}</p>
+            </>
           ) : (
-            <div className="relative">
-              <p className="text-sm text-blue-500 font-medium leading-snug mt-1">Tap to add a return<br/>date for bigger discounts</p>
-              {showReturn && (
-                <input type="date" min={date} value={returnDate} onChange={e => setReturnDate(e.target.value)}
-                  autoFocus
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full" />
-              )}
-            </div>
+            <p className="text-sm text-blue-500 font-medium leading-snug mt-1 pointer-events-none">
+              Tap to add a return<br/>date for bigger discounts
+            </p>
           )}
+          <input
+            ref={returnDateRef}
+            type="date"
+            min={date}
+            value={returnDate}
+            onChange={e => setReturnDate(e.target.value)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none' }}
+          />
         </div>
 
         {/* TRAVELLERS & CLASS */}

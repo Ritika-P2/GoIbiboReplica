@@ -1,16 +1,42 @@
 import { useNavigate } from 'react-router-dom'
-import Card from '../common/Card'
-import Button from '../common/Button'
 
-const CITY_EMOJI = { Mumbai:'🌆', Delhi:'🏛️', Bangalore:'🌿', Goa:'🏖️' }
+const CITY_GRADIENTS = {
+  Mumbai:        'from-blue-200 to-indigo-200',
+  Delhi:         'from-red-100 to-orange-200',
+  Bangalore:     'from-green-100 to-teal-200',
+  Goa:           'from-orange-200 to-yellow-100',
+  Chennai:       'from-cyan-100 to-blue-200',
+  Hyderabad:     'from-purple-100 to-indigo-200',
+  Jaipur:        'from-pink-100 to-rose-200',
+  Kolkata:       'from-yellow-100 to-amber-200',
+  Udaipur:       'from-cyan-100 to-blue-100',
+  Kochi:         'from-emerald-100 to-green-200',
+  Manali:        'from-indigo-100 to-purple-200',
+}
 
-function Stars({ count }) {
-  return <span className="text-yellow-400">{'★'.repeat(count)}{'☆'.repeat(5 - count)}</span>
+const CITY_ICONS = {
+  Mumbai: '🌆', Delhi: '🏛️', Bangalore: '🌿', Goa: '🏖️',
+  Chennai: '🏖️', Hyderabad: '🕌', Jaipur: '🏰', Kolkata: '🌉',
+  Udaipur: '🛶', Kochi: '⛵', Manali: '🏔️',
+}
+
+function RatingBadge({ rating }) {
+  if (!rating) return null
+  const color = rating >= 4.5 ? 'bg-green-600' : rating >= 4 ? 'bg-green-500' : rating >= 3.5 ? 'bg-yellow-500' : 'bg-orange-400'
+  const label = rating >= 4.5 ? 'Fabulous' : rating >= 4 ? 'Very Good' : rating >= 3.5 ? 'Good' : 'Okay'
+  return (
+    <div className={`${color} text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1`}>
+      <span>{rating}</span>
+      <span className="text-[10px] font-medium hidden sm:inline">{label}</span>
+    </div>
+  )
 }
 
 export default function HotelCard({ hotel, searchParams }) {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
   const lowestRoom = hotel.rooms?.[0]
+  const gradient  = CITY_GRADIENTS[hotel.city] || 'from-gray-100 to-gray-200'
+  const cityIcon  = CITY_ICONS[hotel.city] || '🏨'
 
   function handleView() {
     const qs = new URLSearchParams({
@@ -22,64 +48,79 @@ export default function HotelCard({ hotel, searchParams }) {
     navigate(`/hotels/${hotel.id}${qs ? `?${qs}` : ''}`)
   }
 
+  const stars = hotel.starRating || 0
+
   return (
-    <Card hover className="overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all overflow-hidden">
       <div className="flex flex-col sm:flex-row">
-        {/* Image placeholder */}
-        <div className="sm:w-52 h-40 sm:h-auto bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-6xl shrink-0">
-          {CITY_EMOJI[hotel.city] || '🏨'}
+        {/* Image / gradient placeholder */}
+        <div className={`sm:w-52 h-44 sm:h-auto bg-gradient-to-br ${gradient} flex flex-col items-center justify-center shrink-0 relative`}>
+          <span className="text-6xl">{cityIcon}</span>
+          <span className="text-xs font-semibold text-gray-500 mt-2">{hotel.city}</span>
+          {hotel.starRating >= 5 && (
+            <span className="absolute top-2 left-2 text-[10px] bg-yellow-400 text-yellow-900 font-bold px-2 py-0.5 rounded-full">
+              Luxury
+            </span>
+          )}
         </div>
 
-        <div className="flex-1 p-5 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="font-bold text-gray-900 text-lg leading-tight">{hotel.name}</h3>
-                <p className="text-sm text-gray-500 mt-0.5">{hotel.address}</p>
-              </div>
-            </div>
+        {/* Info */}
+        <div className="flex-1 p-4 flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-gray-900 text-lg leading-tight">{hotel.name}</h3>
+            <p className="text-sm text-gray-500 mt-0.5 truncate">{hotel.address}, {hotel.city}</p>
 
+            {/* Stars + Rating */}
             <div className="flex items-center gap-2 mt-2">
-              <Stars count={hotel.starRating} />
-              {hotel.avgRating && (
-                <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-                  {hotel.avgRating} ★
-                </span>
-              )}
+              <span className="text-yellow-400 text-sm tracking-tight">
+                {'★'.repeat(stars)}{'☆'.repeat(5 - stars)}
+              </span>
+              <RatingBadge rating={hotel.avgRating} />
               {hotel.reviewCount > 0 && (
                 <span className="text-xs text-gray-400">{hotel.reviewCount} reviews</span>
               )}
             </div>
 
+            {/* Amenities */}
             {hotel.amenities?.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {hotel.amenities.slice(0, 5).map(a => (
-                  <span key={a} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{a}</span>
+                  <span key={a} className="text-xs bg-orange-50 text-orange-700 border border-orange-100 px-2 py-0.5 rounded-full font-medium">
+                    {a}
+                  </span>
                 ))}
                 {hotel.amenities.length > 5 && (
-                  <span className="text-xs text-blue-500">+{hotel.amenities.length - 5} more</span>
+                  <span className="text-xs text-orange-500 font-medium">+{hotel.amenities.length - 5} more</span>
                 )}
               </div>
+            )}
+
+            {lowestRoom && (
+              <p className="text-xs text-gray-400 mt-2">Room: <span className="text-gray-600 font-medium">{lowestRoom.type}</span></p>
             )}
           </div>
 
           {/* Price + CTA */}
-          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0">
+          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-end gap-3 shrink-0 sm:w-36">
             {lowestRoom ? (
               <div className="text-right">
                 <p className="text-xs text-gray-400">Starting from</p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-orange-500">
                   ₹{Number(lowestRoom.pricePerNight).toLocaleString('en-IN')}
                 </p>
                 <p className="text-xs text-gray-400">per night</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">+ taxes &amp; fees</p>
               </div>
             ) : (
-              <p className="text-sm text-gray-400">Price unavailable</p>
+              <p className="text-sm text-gray-400">Check availability</p>
             )}
-            <Button size="sm" onClick={handleView}>View Hotel</Button>
+            <button onClick={handleView}
+              className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors whitespace-nowrap">
+              View Hotel
+            </button>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }
