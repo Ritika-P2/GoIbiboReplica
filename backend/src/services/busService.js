@@ -43,4 +43,57 @@ async function getBusById(id) {
   return bus
 }
 
-module.exports = { searchBuses, getBusById }
+async function listBuses(query) {
+  const { page, limit, skip } = getPagination(query)
+  const [total, buses] = await Promise.all([
+    prisma.bus.count(),
+    prisma.bus.findMany({ skip, take: limit, orderBy: { departureTime: 'asc' } }),
+  ])
+  return { buses, meta: getPaginationMeta(total, page, limit) }
+}
+
+async function createBus(data) {
+  const splitCSV = (v) => Array.isArray(v) ? v : (v || '').split(',').map(s => s.trim()).filter(Boolean)
+  return prisma.bus.create({
+    data: {
+      operator:       data.operator,
+      busType:        data.busType,
+      origin:         data.origin,
+      destination:    data.destination,
+      departureTime:  new Date(data.departureTime),
+      arrivalTime:    new Date(data.arrivalTime),
+      duration:       Number(data.duration),
+      price:          Number(data.price),
+      totalSeats:     Number(data.totalSeats),
+      availableSeats: Number(data.availableSeats),
+      amenities:      splitCSV(data.amenities),
+    },
+  })
+}
+
+async function updateBus(id, data) {
+  const bus = await prisma.bus.findUnique({ where: { id } })
+  if (!bus) { const err = new Error('Bus not found.'); err.status = 404; throw err }
+  const splitCSV = (v) => Array.isArray(v) ? v : v.split(',').map(s => s.trim()).filter(Boolean)
+  const update = {}
+  if (data.operator !== undefined)       update.operator       = data.operator
+  if (data.busType !== undefined)        update.busType        = data.busType
+  if (data.origin !== undefined)         update.origin         = data.origin
+  if (data.destination !== undefined)    update.destination    = data.destination
+  if (data.departureTime !== undefined)  update.departureTime  = new Date(data.departureTime)
+  if (data.arrivalTime !== undefined)    update.arrivalTime    = new Date(data.arrivalTime)
+  if (data.duration !== undefined)       update.duration       = Number(data.duration)
+  if (data.price !== undefined)          update.price          = Number(data.price)
+  if (data.totalSeats !== undefined)     update.totalSeats     = Number(data.totalSeats)
+  if (data.availableSeats !== undefined) update.availableSeats = Number(data.availableSeats)
+  if (data.amenities !== undefined)      update.amenities      = splitCSV(data.amenities)
+  return prisma.bus.update({ where: { id }, data: update })
+}
+
+async function deleteBus(id) {
+  const bus = await prisma.bus.findUnique({ where: { id } })
+  if (!bus) { const err = new Error('Bus not found.'); err.status = 404; throw err }
+  await prisma.bus.delete({ where: { id } })
+}
+
+module.exports = { searchBuses, getBusById, listBuses, createBus, updateBus, deleteBus }

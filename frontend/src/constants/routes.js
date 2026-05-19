@@ -29,4 +29,10 @@
   CANCELLATION_POLICY: '/cancellation-policy',
   PRIVACY_POLICY: '/privacy-policy',
   TERMS: '/terms',
+  ADMIN: '/admin',
+  ADMIN_FLIGHTS: '/admin/flights',
+  ADMIN_HOTELS: '/admin/hotels',
+  ADMIN_TRAINS: '/admin/trains',
+  ADMIN_BUSES: '/admin/buses',
+  ADMIN_HOLIDAYS: '/admin/holidays',
 }

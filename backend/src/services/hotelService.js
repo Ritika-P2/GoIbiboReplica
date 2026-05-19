@@ -92,4 +92,63 @@ async function getHotelRooms(hotelId, query) {
   return rooms
 }
 
-module.exports = { searchHotels, getHotelById, getHotelRooms }
+async function listHotels(query) {
+  const { page, limit, skip } = getPagination(query)
+  const [total, hotels] = await Promise.all([
+    prisma.hotel.count(),
+    prisma.hotel.findMany({ skip, take: limit, orderBy: { createdAt: 'desc' }, include: { rooms: true } }),
+  ])
+  return { hotels, meta: getPaginationMeta(total, page, limit) }
+}
+
+async function createHotel(data) {
+  const { rooms = [], ...hotelData } = data
+  const splitCSV = (v) => Array.isArray(v) ? v : (v || '').split(',').map(s => s.trim()).filter(Boolean)
+  return prisma.hotel.create({
+    data: {
+      name:        hotelData.name,
+      description: hotelData.description || null,
+      city:        hotelData.city,
+      address:     hotelData.address,
+      starRating:  Number(hotelData.starRating),
+      amenities:   splitCSV(hotelData.amenities),
+      images:      splitCSV(hotelData.images),
+      rooms: {
+        create: rooms.map(r => ({
+          type:           r.type,
+          description:    r.description || null,
+          pricePerNight:  Number(r.pricePerNight),
+          capacity:       Number(r.capacity),
+          totalRooms:     Number(r.totalRooms),
+          availableRooms: Number(r.totalRooms),
+          amenities:      splitCSV(r.amenities),
+          images:         splitCSV(r.images),
+        })),
+      },
+    },
+    include: { rooms: true },
+  })
+}
+
+async function updateHotel(id, data) {
+  const hotel = await prisma.hotel.findUnique({ where: { id } })
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
+  const splitCSV = (v) => Array.isArray(v) ? v : v.split(',').map(s => s.trim()).filter(Boolean)
+  const update = {}
+  if (data.name !== undefined)        update.name        = data.name
+  if (data.description !== undefined) update.description = data.description
+  if (data.city !== undefined)        update.city        = data.city
+  if (data.address !== undefined)     update.address     = data.address
+  if (data.starRating !== undefined)  update.starRating  = Number(data.starRating)
+  if (data.amenities !== undefined)   update.amenities   = splitCSV(data.amenities)
+  if (data.images !== undefined)      update.images      = splitCSV(data.images)
+  return prisma.hotel.update({ where: { id }, data: update })
+}
+
+async function deleteHotel(id) {
+  const hotel = await prisma.hotel.findUnique({ where: { id } })
+  if (!hotel) { const err = new Error('Hotel not found.'); err.status = 404; throw err }
+  await prisma.hotel.delete({ where: { id } })
+}
+
+module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel }

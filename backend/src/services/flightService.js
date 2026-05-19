@@ -44,4 +44,57 @@ async function getFlightById(id) {
   return flight
 }
 
-module.exports = { searchFlights, getFlightById }
+async function listFlights(query) {
+  const { page, limit, skip } = getPagination(query)
+  const [total, flights] = await Promise.all([
+    prisma.flight.count(),
+    prisma.flight.findMany({ skip, take: limit, orderBy: { departureTime: 'asc' } }),
+  ])
+  return { flights, meta: getPaginationMeta(total, page, limit) }
+}
+
+async function createFlight(data) {
+  return prisma.flight.create({
+    data: {
+      flightNumber:   data.flightNumber,
+      airline:        data.airline,
+      origin:         data.origin.toUpperCase(),
+      destination:    data.destination.toUpperCase(),
+      departureTime:  new Date(data.departureTime),
+      arrivalTime:    new Date(data.arrivalTime),
+      duration:       Number(data.duration),
+      price:          Number(data.price),
+      totalSeats:     Number(data.totalSeats),
+      availableSeats: Number(data.availableSeats),
+      cabinClass:     data.cabinClass || 'ECONOMY',
+      stops:          Number(data.stops) || 0,
+    },
+  })
+}
+
+async function updateFlight(id, data) {
+  const flight = await prisma.flight.findUnique({ where: { id } })
+  if (!flight) { const err = new Error('Flight not found.'); err.status = 404; throw err }
+  const update = {}
+  if (data.flightNumber)  update.flightNumber  = data.flightNumber
+  if (data.airline)       update.airline       = data.airline
+  if (data.origin)        update.origin        = data.origin.toUpperCase()
+  if (data.destination)   update.destination   = data.destination.toUpperCase()
+  if (data.departureTime) update.departureTime = new Date(data.departureTime)
+  if (data.arrivalTime)   update.arrivalTime   = new Date(data.arrivalTime)
+  if (data.duration)      update.duration      = Number(data.duration)
+  if (data.price)         update.price         = Number(data.price)
+  if (data.totalSeats)    update.totalSeats    = Number(data.totalSeats)
+  if (data.availableSeats !== undefined) update.availableSeats = Number(data.availableSeats)
+  if (data.cabinClass)    update.cabinClass    = data.cabinClass
+  if (data.stops !== undefined) update.stops  = Number(data.stops)
+  return prisma.flight.update({ where: { id }, data: update })
+}
+
+async function deleteFlight(id) {
+  const flight = await prisma.flight.findUnique({ where: { id } })
+  if (!flight) { const err = new Error('Flight not found.'); err.status = 404; throw err }
+  await prisma.flight.delete({ where: { id } })
+}
+
+module.exports = { searchFlights, getFlightById, listFlights, createFlight, updateFlight, deleteFlight }

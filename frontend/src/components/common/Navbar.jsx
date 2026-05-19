@@ -101,6 +101,12 @@ export default function Navbar() {
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600">
                         👤 Profile
                       </Link>
+                      {user?.role === 'ADMIN' && (
+                        <Link to={ROUTES.ADMIN} onClick={() => setProfileOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-orange-600 font-semibold hover:bg-orange-50">
+                          ⚙️ Admin Panel
+                        </Link>
+                      )}
                       <hr className="my-1 border-gray-100" />
                       <button onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
@@ -164,6 +170,9 @@ export default function Navbar() {
             <div className="space-y-1">
               <Link to={ROUTES.MY_BOOKINGS} onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">🧳 My Bookings</Link>
               <Link to={ROUTES.PROFILE} onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">👤 Profile</Link>
+              {user?.role === 'ADMIN' && (
+                <Link to={ROUTES.ADMIN} onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm text-orange-600 font-semibold hover:bg-orange-50 rounded-lg">⚙️ Admin Panel</Link>
+              )}
               <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg">🚪 Logout</button>
             </div>
           ) : (

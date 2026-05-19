@@ -1,8 +1,10 @@
-﻿import { Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { ROUTES } from '../constants/routes'
 import MainLayout from '../layouts/MainLayout'
+import AdminLayout from '../layouts/AdminLayout'
 import AuthLayout from '../layouts/AuthLayout'
 import ProtectedRoute from './ProtectedRoute'
+import AdminRoute from './AdminRoute'
 
 import HomePage from '../pages/HomePage'
 import FlightsPage from '../pages/FlightsPage'
@@ -36,47 +38,65 @@ import CancellationPolicyPage from '../pages/CancellationPolicyPage'
 import PrivacyPolicyPage from '../pages/PrivacyPolicyPage'
 import TermsPage from '../pages/TermsPage'
 
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
+import AdminFlightsPage   from '../pages/admin/AdminFlightsPage'
+import AdminHotelsPage    from '../pages/admin/AdminHotelsPage'
+import AdminTrainsPage    from '../pages/admin/AdminTrainsPage'
+import AdminBusesPage     from '../pages/admin/AdminBusesPage'
+import AdminHolidaysPage  from '../pages/admin/AdminHolidaysPage'
+
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Auth routes */}
       <Route element={<AuthLayout />}>
-        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <Route path={ROUTES.LOGIN}    element={<LoginPage />} />
         <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
       </Route>
 
-      {/* Public routes */}
+      {/* Admin routes — wrapped in MainLayout + AdminLayout */}
       <Route element={<MainLayout />}>
-        <Route path={ROUTES.HOME} element={<HomePage />} />
-        <Route path={ROUTES.FLIGHTS} element={<FlightsPage />} />
-        <Route path={ROUTES.FLIGHT_RESULTS} element={<FlightResultsPage />} />
-        <Route path={ROUTES.HOTELS} element={<HotelsPage />} />
-        <Route path={ROUTES.HOTEL_RESULTS} element={<HotelResultsPage />} />
-        <Route path={ROUTES.HOTEL_DETAIL} element={<HotelDetailPage />} />
-        <Route path={ROUTES.TRAINS} element={<TrainsPage />} />
-        <Route path={ROUTES.TRAIN_RESULTS} element={<TrainResultsPage />} />
-        <Route path={ROUTES.BUSES} element={<BusesPage />} />
-        <Route path={ROUTES.BUS_RESULTS} element={<BusResultsPage />} />
-        <Route path={ROUTES.CABS} element={<CabsPage />} />
-        <Route path={ROUTES.HOLIDAYS} element={<HolidaysPage />} />
-        <Route path={ROUTES.HOLIDAY_BOOKING} element={<ProtectedRoute><HolidayBookingPage /></ProtectedRoute>} />
-        <Route path={ROUTES.ABOUT} element={<AboutPage />} />
-        <Route path={ROUTES.CAREERS} element={<CareersPage />} />
-        <Route path={ROUTES.PRESS} element={<PressPage />} />
-        <Route path={ROUTES.CONTACT} element={<ContactPage />} />
-        <Route path={ROUTES.HELP} element={<HelpCenterPage />} />
-        <Route path={ROUTES.CANCELLATION_POLICY} element={<CancellationPolicyPage />} />
-        <Route path={ROUTES.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
-        <Route path={ROUTES.TERMS} element={<TermsPage />} />
+        <Route element={<AdminRoute><AdminLayout /></AdminRoute>}>
+          <Route path={ROUTES.ADMIN}          element={<AdminDashboardPage />} />
+          <Route path={ROUTES.ADMIN_FLIGHTS}  element={<AdminFlightsPage />} />
+          <Route path={ROUTES.ADMIN_HOTELS}   element={<AdminHotelsPage />} />
+          <Route path={ROUTES.ADMIN_TRAINS}   element={<AdminTrainsPage />} />
+          <Route path={ROUTES.ADMIN_BUSES}    element={<AdminBusesPage />} />
+          <Route path={ROUTES.ADMIN_HOLIDAYS} element={<AdminHolidaysPage />} />
+        </Route>
+      </Route>
 
-        {/* Protected routes */}
-        <Route path={ROUTES.FLIGHT_BOOKING} element={<ProtectedRoute><FlightBookingPage /></ProtectedRoute>} />
-        <Route path={ROUTES.HOTEL_BOOKING} element={<ProtectedRoute><HotelBookingPage /></ProtectedRoute>} />
-        <Route path={ROUTES.TRAIN_BOOKING} element={<ProtectedRoute><TrainBookingPage /></ProtectedRoute>} />
-        <Route path={ROUTES.BUS_BOOKING} element={<ProtectedRoute><BusBookingPage /></ProtectedRoute>} />
+      {/* Public + protected routes */}
+      <Route element={<MainLayout />}>
+        <Route path={ROUTES.HOME}               element={<HomePage />} />
+        <Route path={ROUTES.FLIGHTS}            element={<FlightsPage />} />
+        <Route path={ROUTES.FLIGHT_RESULTS}     element={<FlightResultsPage />} />
+        <Route path={ROUTES.HOTELS}             element={<HotelsPage />} />
+        <Route path={ROUTES.HOTEL_RESULTS}      element={<HotelResultsPage />} />
+        <Route path={ROUTES.HOTEL_DETAIL}       element={<HotelDetailPage />} />
+        <Route path={ROUTES.TRAINS}             element={<TrainsPage />} />
+        <Route path={ROUTES.TRAIN_RESULTS}      element={<TrainResultsPage />} />
+        <Route path={ROUTES.BUSES}              element={<BusesPage />} />
+        <Route path={ROUTES.BUS_RESULTS}        element={<BusResultsPage />} />
+        <Route path={ROUTES.CABS}               element={<CabsPage />} />
+        <Route path={ROUTES.HOLIDAYS}           element={<HolidaysPage />} />
+        <Route path={ROUTES.HOLIDAY_BOOKING}    element={<ProtectedRoute><HolidayBookingPage /></ProtectedRoute>} />
+        <Route path={ROUTES.ABOUT}              element={<AboutPage />} />
+        <Route path={ROUTES.CAREERS}            element={<CareersPage />} />
+        <Route path={ROUTES.PRESS}              element={<PressPage />} />
+        <Route path={ROUTES.CONTACT}            element={<ContactPage />} />
+        <Route path={ROUTES.HELP}               element={<HelpCenterPage />} />
+        <Route path={ROUTES.CANCELLATION_POLICY} element={<CancellationPolicyPage />} />
+        <Route path={ROUTES.PRIVACY_POLICY}     element={<PrivacyPolicyPage />} />
+        <Route path={ROUTES.TERMS}              element={<TermsPage />} />
+
+        <Route path={ROUTES.FLIGHT_BOOKING}      element={<ProtectedRoute><FlightBookingPage /></ProtectedRoute>} />
+        <Route path={ROUTES.HOTEL_BOOKING}       element={<ProtectedRoute><HotelBookingPage /></ProtectedRoute>} />
+        <Route path={ROUTES.TRAIN_BOOKING}       element={<ProtectedRoute><TrainBookingPage /></ProtectedRoute>} />
+        <Route path={ROUTES.BUS_BOOKING}         element={<ProtectedRoute><BusBookingPage /></ProtectedRoute>} />
         <Route path={ROUTES.BOOKING_CONFIRMATION} element={<ProtectedRoute><BookingConfirmationPage /></ProtectedRoute>} />
-        <Route path={ROUTES.MY_BOOKINGS} element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
-        <Route path={ROUTES.PROFILE} element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path={ROUTES.MY_BOOKINGS}         element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
+        <Route path={ROUTES.PROFILE}             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

@@ -22,4 +22,32 @@ async function getHotelRooms(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { searchHotels, getHotelById, getHotelRooms }
+async function listHotels(req, res, next) {
+  try {
+    const { hotels, meta } = await hotelService.listHotels(req.query)
+    res.json(successResponse('Hotels listed.', { hotels }, meta))
+  } catch (err) { next(err) }
+}
+
+async function createHotel(req, res, next) {
+  try {
+    const hotel = await hotelService.createHotel(req.body)
+    res.status(201).json(successResponse('Hotel created.', { hotel }))
+  } catch (err) { next(err) }
+}
+
+async function updateHotel(req, res, next) {
+  try {
+    const hotel = await hotelService.updateHotel(req.params.id, req.body)
+    res.json(successResponse('Hotel updated.', { hotel }))
+  } catch (err) { next(err) }
+}
+
+async function deleteHotel(req, res, next) {
+  try {
+    await hotelService.deleteHotel(req.params.id)
+    res.json(successResponse('Hotel deleted.'))
+  } catch (err) { next(err) }
+}
+
+module.exports = { searchHotels, getHotelById, getHotelRooms, listHotels, createHotel, updateHotel, deleteHotel }
