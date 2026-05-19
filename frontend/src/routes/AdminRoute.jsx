@@ -7,7 +7,7 @@ export default function AdminRoute({ children }) {
   const location = useLocation()
 
   if (!isAuthenticated) return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />
-  if (user?.role !== 'ADMIN') return <Navigate to={ROUTES.HOME} replace />
+  if (user?.role !== 'MANAGER' && user?.role !== 'ADMIN') return <Navigate to={ROUTES.HOME} replace />
 
   return children
 }

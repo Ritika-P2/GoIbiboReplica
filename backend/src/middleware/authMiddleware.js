@@ -19,8 +19,8 @@ function authMiddleware(req, res, next) {
 }
 
 function adminMiddleware(req, res, next) {
-  if (req.user?.role !== 'ADMIN') {
-    return res.status(403).json(errorResponse('Access denied. Admins only.'))
+  if (req.user?.role !== 'MANAGER' && req.user?.role !== 'ADMIN') {
+    return res.status(403).json(errorResponse('Access denied. Managers only.'))
   }
   next()
 }

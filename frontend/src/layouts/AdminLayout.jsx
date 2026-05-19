@@ -16,7 +16,7 @@ export default function AdminLayout() {
       {/* Sidebar */}
       <aside className="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-100">
-          <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">Admin Panel</p>
+          <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">Manager Panel</p>
         </div>
         <nav className="flex flex-col gap-0.5 p-3 flex-1">
           {LINKS.map(link => (
