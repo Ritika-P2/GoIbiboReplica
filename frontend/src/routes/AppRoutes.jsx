@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout'
 import AuthLayout from '../layouts/AuthLayout'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
+import ModuleRoute from './ModuleRoute'
 
 import HomePage from '../pages/HomePage'
 import FlightsPage from '../pages/FlightsPage'
@@ -59,11 +60,11 @@ export default function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route path={ROUTES.ADMIN}          element={<AdminDashboardPage />} />
-          <Route path={ROUTES.ADMIN_FLIGHTS}  element={<AdminFlightsPage />} />
-          <Route path={ROUTES.ADMIN_HOTELS}   element={<AdminHotelsPage />} />
-          <Route path={ROUTES.ADMIN_TRAINS}   element={<AdminTrainsPage />} />
-          <Route path={ROUTES.ADMIN_BUSES}    element={<AdminBusesPage />} />
-          <Route path={ROUTES.ADMIN_HOLIDAYS} element={<AdminHolidaysPage />} />
+          <Route path={ROUTES.ADMIN_FLIGHTS}  element={<ModuleRoute module="FLIGHTS"><AdminFlightsPage /></ModuleRoute>} />
+          <Route path={ROUTES.ADMIN_HOTELS}   element={<ModuleRoute module="HOTELS"><AdminHotelsPage /></ModuleRoute>} />
+          <Route path={ROUTES.ADMIN_TRAINS}   element={<ModuleRoute module="TRAINS"><AdminTrainsPage /></ModuleRoute>} />
+          <Route path={ROUTES.ADMIN_BUSES}    element={<ModuleRoute module="BUSES"><AdminBusesPage /></ModuleRoute>} />
+          <Route path={ROUTES.ADMIN_HOLIDAYS} element={<ModuleRoute module="HOLIDAYS"><AdminHolidaysPage /></ModuleRoute>} />
         </Route>
       </Route>
 

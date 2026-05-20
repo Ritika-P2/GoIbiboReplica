@@ -24,8 +24,16 @@ async function seedUsers() {
   const hash = (pw) => bcrypt.hashSync(pw, 12)
 
   const users = [
-    { name: 'Admin',          email: 'admin@goibibo.com',   password: hash('Admin@1234'),   role: 'ADMIN',   phone: '9000000000' },
-    { name: 'Manager',        email: 'manager@goibibo.com', password: hash('Manager@1234'), role: 'MANAGER', phone: '9000000001' },
+    { name: 'Admin',           email: 'admin@goibibo.com',           password: hash('Admin@1234'),   role: 'ADMIN',   phone: '9000000000' },
+    { name: 'Manager',         email: 'manager@goibibo.com',         password: hash('Manager@1234'), role: 'MANAGER', phone: '9000000001' },
+    // Module-specific managers (one per booking module)
+    { name: 'Flight Manager',  email: 'flight_manager@goibibo.com',  password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'FLIGHTS',  phone: '9000000010' },
+    { name: 'Hotel Manager',   email: 'hotel_manager@goibibo.com',   password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'HOTELS',   phone: '9000000011' },
+    { name: 'Train Manager',   email: 'train_manager@goibibo.com',   password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'TRAINS',   phone: '9000000012' },
+    { name: 'Bus Manager',     email: 'bus_manager@goibibo.com',     password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'BUSES',    phone: '9000000013' },
+    { name: 'Holiday Manager', email: 'holiday_manager@goibibo.com', password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'HOLIDAYS', phone: '9000000014' },
+    { name: 'Car Manager',     email: 'car_manager@goibibo.com',     password: hash('Manager@1234'), role: 'MANAGER', managerModule: 'CARS',     phone: '9000000015' },
+    // Regular users
     { name: 'Ritika Purohit', email: 'ritika@goibibo.com', password: hash('Test@1234'),  role: 'USER',  phone: '9876543210' },
     { name: 'Arjun Mehta',    email: 'arjun@goibibo.com',  password: hash('Test@1234'),  role: 'USER',  phone: '9123456789' },
     { name: 'Priya Sharma',   email: 'priya@goibibo.com',  password: hash('Test@1234'),  role: 'USER',  phone: '9988776655' },

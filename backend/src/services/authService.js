@@ -13,10 +13,10 @@ async function register({ name, email, password, phone }) {
   const hashed = await hashPassword(password)
   const user = await prisma.user.create({
     data: { name, email, password: hashed, phone: phone || null },
-    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, managerModule: true, createdAt: true },
   })
 
-  const token = generateToken({ id: user.id, email: user.email, role: user.role })
+  const token = generateToken({ id: user.id, email: user.email, role: user.role, managerModule: user.managerModule })
   return { user, token }
 }
 
@@ -36,14 +36,14 @@ async function login({ email, password }) {
   }
 
   const { password: _pw, ...safeUser } = user
-  const token = generateToken({ id: safeUser.id, email: safeUser.email, role: safeUser.role })
+  const token = generateToken({ id: safeUser.id, email: safeUser.email, role: safeUser.role, managerModule: safeUser.managerModule })
   return { user: safeUser, token }
 }
 
 async function getMe(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true, updatedAt: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, managerModule: true, createdAt: true, updatedAt: true },
   })
   if (!user) {
     const err = new Error('User not found.')
