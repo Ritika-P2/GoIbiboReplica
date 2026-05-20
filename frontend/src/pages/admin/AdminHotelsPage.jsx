@@ -200,8 +200,8 @@ export default function AdminHotelsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name','City','Stars','Rooms','Status','Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                {['Name','City','Stars','Rooms','Status','Edit','Delete','Approve','Reject'].map(h => (
+                  <th key={h} className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -220,17 +220,21 @@ export default function AdminHotelsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => openEdit(h)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
-                      <button onClick={() => handleDelete(h.id)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
-                      {isAdmin && h.status === 'PENDING' && (
-                        <>
-                          <button onClick={() => handleApprove(h.id)} className="text-xs text-green-600 hover:underline font-medium">Approve</button>
-                          <button onClick={() => { setRejectModal(h); setRejectReason('') }} className="text-xs text-red-600 hover:underline font-medium">Reject</button>
-                        </>
-                      )}
-                    </div>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => openEdit(h)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => handleDelete(h.id)} className="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isAdmin && h.status === 'PENDING'
+                      ? <button onClick={() => handleApprove(h.id)} title="Approve" className="w-7 h-7 rounded-full bg-green-100 hover:bg-green-200 text-green-600 font-bold text-base flex items-center justify-center mx-auto">✓</button>
+                      : <span className="text-gray-300 text-xs">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isAdmin && h.status === 'PENDING'
+                      ? <button onClick={() => { setRejectModal(h); setRejectReason('') }} title="Reject" className="w-7 h-7 rounded-full bg-red-100 hover:bg-red-200 text-red-600 font-bold text-base flex items-center justify-center mx-auto">✕</button>
+                      : <span className="text-gray-300 text-xs">—</span>}
                   </td>
                 </tr>
               ))}
