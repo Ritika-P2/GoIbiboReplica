@@ -1,20 +1,19 @@
 const prisma = require('../config/database')
 const { getPagination, getPaginationMeta } = require('../utils/pagination')
+const { getScheduleBounds } = require('../utils/scheduleFilter')
 
 async function searchFlights(query) {
   const { origin, destination, date, cabin, stops, airline, minPrice, maxPrice } = query
   const { page, limit, skip } = getPagination(query)
 
-  const startOfDay = new Date(date)
-  startOfDay.setHours(0, 0, 0, 0)
-  const endOfDay = new Date(date)
-  endOfDay.setHours(23, 59, 59, 999)
+  // Hide flights that departed more than 60 minutes ago
+  const { lowerBound, endOfDay } = getScheduleBounds(date, 60)
 
   const where = {
     status:      'APPROVED',
     origin:      { equals: origin.toUpperCase(),      mode: 'insensitive' },
     destination: { equals: destination.toUpperCase(), mode: 'insensitive' },
-    departureTime: { gte: startOfDay, lte: endOfDay },
+    departureTime: { gte: lowerBound, lte: endOfDay },
     availableSeats: { gt: 0 },
   }
 
