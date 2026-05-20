@@ -30,7 +30,7 @@ const POPULAR_HOTELS = [
   { city: 'Bangalore', emoji: '🌿', desc: 'Tech hub hotels from ₹3,200/night',gradient: 'from-green-100 to-teal-100' },
 ]
 
-const OFFER_TABS = ['All', 'Bank Offers', 'Flights', 'Hotels', 'Cabs', 'Bus', 'Trains']
+const OFFER_TABS = ['All', 'Bank Offers', 'Flights', 'Hotels', 'Bus', 'Trains']
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -61,10 +61,7 @@ export default function HomePage() {
               { icon: '🏨', label: 'Hotels', route: ROUTES.HOTELS },
               { icon: '🚂', label: 'Trains', route: ROUTES.TRAINS },
               { icon: '🚌', label: 'Bus', route: ROUTES.BUSES },
-              { icon: '🚖', label: 'Cabs', route: ROUTES.CABS },
               { icon: '🏖️', label: 'Holidays', route: ROUTES.HOLIDAYS },
-              { icon: '💱', label: 'Forex', route: '#' },
-              { icon: '🛡️', label: 'Insurance', route: '#' },
             ].map(s => (
               <button key={s.label} onClick={() => s.route !== '#' && navigate(s.route)}
                 className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors group min-w-[70px]">

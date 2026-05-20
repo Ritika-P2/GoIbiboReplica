@@ -17,6 +17,7 @@
   BUS_BOOKING: '/buses/booking',
   CABS: '/cabs',
   HOLIDAYS: '/holidays',
+  HOLIDAY_RESULTS: '/holidays/results',
   HOLIDAY_BOOKING: '/holidays/booking',
   BOOKING_CONFIRMATION: '/booking/confirmation',
   MY_BOOKINGS: '/my-bookings',

@@ -39,7 +39,7 @@ export default function HotelResultsPage() {
     setError(null)
     try {
       const res = await hotelService.search({ city, guests, checkIn, checkOut })
-      setHotels(res.data.hotels || [])
+      setHotels(res.data?.hotels || [])
     } catch {
       setError('Failed to fetch hotels. Please try again.')
     } finally {

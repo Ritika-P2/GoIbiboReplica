@@ -48,7 +48,7 @@ export default function TrainResultsPage() {
     setError(null)
     try {
       const res = await trainService.search({ origin, destination, date, ...(trainClass ? { trainClass } : {}) })
-      setTrains(res.data.trains || [])
+      setTrains(res.data?.trains || [])
     } catch {
       setError('Failed to fetch trains. Please try again.')
     } finally {

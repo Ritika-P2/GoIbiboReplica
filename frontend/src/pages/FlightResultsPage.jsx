@@ -67,7 +67,7 @@ export default function FlightResultsPage() {
     try {
       const params = { origin, destination, date }
       const res = await flightService.search(params)
-      const list = res.data.flights || []
+      const list = res.data?.flights || []
       setFlights(list)
       // compute cheapest for current date
       if (list.length > 0) {

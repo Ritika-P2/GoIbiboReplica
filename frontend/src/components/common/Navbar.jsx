@@ -5,14 +5,11 @@ import { logout } from '../../store/slices/authSlice'
 import { ROUTES } from '../../constants/routes'
 
 const NAV_LINKS = [
-  { label: 'Flights',   to: ROUTES.FLIGHTS,   icon: '✈️' },
-  { label: 'Hotels',    to: ROUTES.HOTELS,    icon: '🏨' },
-  { label: 'Trains',    to: ROUTES.TRAINS,    icon: '🚂' },
-  { label: 'Cabs',      to: ROUTES.CABS,      icon: '🚖' },
-  { label: 'Bus',       to: ROUTES.BUSES,     icon: '🚌' },
-  { label: 'Holidays',  to: ROUTES.HOLIDAYS,  icon: '🏖️' },
-  { label: 'Forex',     to: '#',              icon: '💱' },
-  { label: 'Insurance', to: '#',              icon: '🛡️' },
+  { label: 'Flights',  to: ROUTES.FLIGHTS,  icon: '✈️' },
+  { label: 'Hotels',   to: ROUTES.HOTELS,   icon: '🏨' },
+  { label: 'Trains',   to: ROUTES.TRAINS,   icon: '🚂' },
+  { label: 'Bus',      to: ROUTES.BUSES,    icon: '🚌' },
+  { label: 'Holidays', to: ROUTES.HOLIDAYS, icon: '🏖️' },
 ]
 
 export default function Navbar() {

@@ -44,7 +44,7 @@ export default function BusResultsPage() {
     try {
       const params = { origin, destination, date, ...(busType ? { busType } : {}) }
       const res = await busService.search(params)
-      setBuses(res.data.buses || [])
+      setBuses(res.data?.buses || [])
     } catch {
       setError('Failed to fetch buses. Please try again.')
     } finally {
