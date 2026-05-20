@@ -34,4 +34,15 @@ function approverMiddleware(req, res, next) {
   next()
 }
 
-module.exports = { authMiddleware, adminMiddleware, approverMiddleware }
+// Module-specific MANAGER or ADMIN.
+// ADMIN has unrestricted cross-module access.
+// MANAGER must own the specific module (managerModule === module).
+function moduleMiddleware(module) {
+  return function(req, res, next) {
+    if (req.user?.role === 'ADMIN') return next()
+    if (req.user?.role === 'MANAGER' && req.user?.managerModule === module) return next()
+    return res.status(403).json(errorResponse(`Access denied. ${module} module managers only.`))
+  }
+}
+
+module.exports = { authMiddleware, adminMiddleware, approverMiddleware, moduleMiddleware }

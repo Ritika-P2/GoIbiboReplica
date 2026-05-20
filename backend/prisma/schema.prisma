@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  phone     String?
-  password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  phone         String?
+  password      String
+  role          Role           @default(USER)
+  managerModule ManagerModule?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   bookings  Booking[]
   reviews   Review[]
@@ -236,6 +237,15 @@ enum Role {
   USER
   MANAGER
   ADMIN
+}
+
+enum ManagerModule {
+  FLIGHTS
+  HOTELS
+  TRAINS
+  BUSES
+  HOLIDAYS
+  CARS
 }
 
 enum ContentStatus {
