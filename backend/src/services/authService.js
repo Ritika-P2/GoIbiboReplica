@@ -21,21 +21,27 @@ async function register({ name, email, password, phone }) {
 }
 
 async function login({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } })
-  if (!user) {
+  // Fetch with password for comparison, then re-fetch safe fields
+  const userWithPw = await prisma.user.findUnique({ where: { email } })
+  if (!userWithPw) {
     const err = new Error('Invalid email or password.')
     err.status = 401
     throw err
   }
 
-  const valid = await comparePassword(password, user.password)
+  const valid = await comparePassword(password, userWithPw.password)
   if (!valid) {
     const err = new Error('Invalid email or password.')
     err.status = 401
     throw err
   }
 
-  const { password: _pw, ...safeUser } = user
+  // Explicit select ensures managerModule is always included
+  const safeUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, name: true, email: true, phone: true, role: true, managerModule: true, createdAt: true, updatedAt: true },
+  })
+
   const token = generateToken({ id: safeUser.id, email: safeUser.email, role: safeUser.role, managerModule: safeUser.managerModule })
   return { user: safeUser, token }
 }
