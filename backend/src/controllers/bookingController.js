@@ -4,7 +4,18 @@ const { successResponse } = require('../utils/apiResponse')
 async function createBooking(req, res, next) {
   try {
     const booking = await bookingService.createBooking(req.user.id, req.body)
-    res.status(201).json(successResponse('Booking confirmed.', { booking }))
+    const isPending = booking.status === 'PENDING'
+    res.status(201).json(successResponse(
+      isPending ? 'Booking created. Complete payment to confirm.' : 'Booking confirmed.',
+      { booking }
+    ))
+  } catch (err) { next(err) }
+}
+
+async function confirmPayment(req, res, next) {
+  try {
+    const booking = await bookingService.confirmPayment(req.user.id, req.params.id)
+    res.json(successResponse('Payment confirmed. Booking is now active.', { booking }))
   } catch (err) { next(err) }
 }
 
@@ -29,4 +40,4 @@ async function cancelBooking(req, res, next) {
   } catch (err) { next(err) }
 }
 
-module.exports = { createBooking, getMyBookings, getBookingById, cancelBooking }
+module.exports = { createBooking, confirmPayment, getMyBookings, getBookingById, cancelBooking }
