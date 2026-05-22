@@ -44,6 +44,8 @@ export default function FlightBookingPage() {
 
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
+  // pendingBookingId is set as soon as the booking is saved to DB (before payment)
+  const [pendingBookingId, setPendingBookingId] = useState(null)
   const [passengerForms, setPassengerForms] = useState(
     Array.from({ length: Number(passengers) }, () => ({ name: '', age: '', gender: 'MALE' }))
   )
@@ -118,22 +120,39 @@ export default function FlightBookingPage() {
   async function handleBook() {
     dispatch(bookingStart())
     try {
-      const payload = {
-        type: 'FLIGHT',
-        flightId: flight.id,
-        passengers: passengerForms,
-        contactInfo: contact,
-        totalAmount: totalPrice,
-        packageData: {
-          specialFare,
-          specialFareLabel: fareInfo.label,
-          specialDiscount,
-          couponCode: couponCode || null,
-          couponDiscount,
-        },
+      // --- Phase 1: Create/retrieve the PENDING booking (seat is held) ---
+      let bookingId = pendingBookingId
+      if (!bookingId) {
+        const payload = {
+          type: 'FLIGHT',
+          flightId: flight.id,
+          passengers: passengerForms,
+          contactInfo: contact,
+          totalAmount: totalPrice,
+          packageData: {
+            specialFare,
+            specialFareLabel: fareInfo.label,
+            specialDiscount,
+            couponCode:     couponCode || null,
+            couponDiscount,
+          },
+        }
+        const res = await bookingService.create(payload)
+        bookingId = res.data.booking?.id
+        setPendingBookingId(bookingId)
       }
-      const res = await bookingService.create(payload)
-      const bookingId = res.data.booking?.id
+
+      // --- Phase 2: Simulate payment processing ---
+      // Use CVV "000" to simulate a failed payment (for demo/testing purposes)
+      if (cardCVV === '000') {
+        dispatch(bookingFailure(
+          'Payment declined by bank. Your booking is saved — you can retry payment from My Bookings.'
+        ))
+        return
+      }
+
+      // --- Phase 3: Confirm payment → transition PENDING → CONFIRMED ---
+      await bookingService.confirmPayment(bookingId)
       dispatch(bookingSuccess({ bookingId }))
       setPaymentDone(true)
       setTimeout(() => {
@@ -315,7 +334,7 @@ export default function FlightBookingPage() {
               <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900">Payment Details</h2>
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
-                  This is a demo — enter any card details to simulate payment.
+                  Demo mode — enter any card details. Use CVV <strong>000</strong> to simulate a failed payment and test the Pending booking flow.
                 </p>
                 <Input label="Card Number" value={cardNumber}
                   onChange={e => setCardNumber(e.target.value.replace(/\D/g,'').slice(0,16))}
@@ -329,12 +348,28 @@ export default function FlightBookingPage() {
                 </div>
               </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <p className="font-medium">{error}</p>
+                  {pendingBookingId && (
+                    <p className="mt-1 text-xs text-red-500">
+                      Booking ID <span className="font-mono">{pendingBookingId}</span> is saved as <strong>Pending</strong>. Fix your card details and retry, or find it in My Bookings.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {pendingBookingId && !error && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  <p className="font-medium">⏳ Booking is saved — complete payment to confirm.</p>
+                  <p className="text-xs mt-0.5">Booking ID: <span className="font-mono">{pendingBookingId}</span></p>
+                </div>
+              )}
 
               <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
+                <Button variant="secondary" onClick={() => setStep(1)} disabled={!!pendingBookingId}>Back</Button>
                 <Button loading={loading} onClick={handleBook} className="flex-1">
-                  Pay ₹{totalPrice.toLocaleString('en-IN')}
+                  {pendingBookingId ? `Retry Payment — ₹${totalPrice.toLocaleString('en-IN')}` : `Pay ₹${totalPrice.toLocaleString('en-IN')}`}
                 </Button>
               </div>
             </div>

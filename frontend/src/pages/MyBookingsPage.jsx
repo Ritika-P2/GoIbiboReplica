@@ -5,23 +5,22 @@ import { ROUTES } from '../constants/routes'
 import Loader from '../components/common/Loader'
 import Button from '../components/common/Button'
 
-const TYPES    = ['ALL', 'FLIGHT', 'HOTEL', 'TRAIN', 'BUS', 'CAB', 'HOLIDAY']
+const TYPES    = ['ALL', 'FLIGHT', 'HOTEL', 'TRAIN', 'BUS', 'HOLIDAY']
 const STATUSES = ['ALL', 'CONFIRMED', 'PENDING', 'CANCELLED', 'COMPLETED']
 
-const TYPE_ICONS = { FLIGHT: '✈️', HOTEL: '🏨', TRAIN: '🚂', BUS: '🚌', CAB: '🚗', HOLIDAY: '🌴' }
+const TYPE_ICONS = { FLIGHT: '✈️', HOTEL: '🏨', TRAIN: '🚂', BUS: '🚌', HOLIDAY: '🌴' }
 const TYPE_COLOR = {
   FLIGHT:  'from-blue-500 to-indigo-500',
   HOTEL:   'from-purple-500 to-violet-500',
   TRAIN:   'from-green-500 to-emerald-500',
   BUS:     'from-orange-500 to-amber-500',
-  CAB:     'from-yellow-500 to-orange-400',
   HOLIDAY: 'from-pink-500 to-rose-400',
 }
 const STATUS_BADGE = {
   PENDING:   'bg-yellow-100 text-yellow-800 border-yellow-200',
   CONFIRMED: 'bg-green-100 text-green-800 border-green-200',
   CANCELLED: 'bg-red-100 text-red-800 border-red-200',
-  COMPLETED: 'bg-blue-100 text-blue-800 border-blue-200',
+  COMPLETED: 'bg-gray-100 text-gray-600 border-gray-200',
 }
 const PAYMENT_STYLE = {
   SUCCESS:  { cls: 'text-green-700 bg-green-50 border-green-200', label: '✓ Paid' },
@@ -44,6 +43,20 @@ function fmtDur(mins) {
 function nights(checkIn, checkOut) {
   if (!checkIn || !checkOut) return 0
   return Math.round((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))
+}
+
+function getJourneyDate(b) {
+  if (b.type === 'FLIGHT'  && b.flight?.departureTime) return new Date(b.flight.departureTime)
+  if (b.type === 'TRAIN'   && b.train?.departureTime)  return new Date(b.train.departureTime)
+  if (b.type === 'BUS'     && b.bus?.departureTime)    return new Date(b.bus.departureTime)
+  if (b.type === 'HOTEL'   && b.checkOut)              return new Date(b.checkOut)
+  if (b.type === 'HOLIDAY' && b.checkOut)              return new Date(b.checkOut)
+  return null
+}
+
+function isPastBooking(b) {
+  const jd = getJourneyDate(b)
+  return jd ? jd < new Date() : false
 }
 
 function BookingDetails({ b }) {
@@ -201,6 +214,13 @@ export default function MyBookingsPage() {
   const [statusTab,  setStatusTab]  = useState('ALL')
   const [cancelling, setCancelling] = useState(null)
   const [expanded,   setExpanded]   = useState({})
+  const [success,    setSuccess]    = useState('')
+
+  // Retry payment modal state
+  const [retryModal,  setRetryModal]  = useState(null)
+  const [retryCard,   setRetryCard]   = useState({ number: '', expiry: '', cvv: '' })
+  const [retrying,    setRetrying]    = useState(false)
+  const [retryError,  setRetryError]  = useState('')
 
   async function fetchBookings() {
     setLoading(true)
@@ -237,6 +257,26 @@ export default function MyBookingsPage() {
     }
   }
 
+  async function handleRetryPayment() {
+    if (retryCard.cvv === '000') {
+      setRetryError('Payment declined by bank. Please check your card details and try again.')
+      return
+    }
+    setRetrying(true)
+    setRetryError('')
+    try {
+      await bookingService.confirmPayment(retryModal.id)
+      setSuccess('Payment successful! Your booking is now confirmed.')
+      setRetryModal(null)
+      setRetryCard({ number: '', expiry: '', cvv: '' })
+      fetchBookings()
+    } catch (e) {
+      setRetryError(e.message || 'Payment failed. Please try again.')
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
@@ -264,6 +304,13 @@ export default function MyBookingsPage() {
         ))}
       </div>
 
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm flex items-center justify-between">
+          <span>{success}</span>
+          <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700 ml-4 text-xs">✕</button>
+        </div>
+      )}
+
       {loading && <Loader text="Loading your bookings..." />}
 
       {!loading && error && (
@@ -288,10 +335,13 @@ export default function MyBookingsPage() {
             const payStyle = PAYMENT_STYLE[b.payment?.status] || PAYMENT_STYLE.PENDING
             const isExpanded = expanded[b.id]
 
+            const past = isPastBooking(b)
+            const displayStatus = past && b.status === 'CONFIRMED' ? 'COMPLETED' : b.status
+
             return (
-              <div key={b.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                {/* Colour stripe */}
-                <div className={`h-1 bg-gradient-to-r ${TYPE_COLOR[b.type] || 'from-gray-400 to-gray-500'}`} />
+              <div key={b.id} className={`bg-white rounded-xl border overflow-hidden hover:shadow-md transition-shadow ${past ? 'border-gray-200 opacity-90' : 'border-gray-200'}`}>
+                {/* Colour stripe — gray for completed/past */}
+                <div className={`h-1 bg-gradient-to-r ${past || b.status === 'COMPLETED' ? 'from-gray-300 to-gray-400' : TYPE_COLOR[b.type] || 'from-gray-400 to-gray-500'}`} />
 
                 <div className="px-5 pt-4 pb-3">
                   {/* Top row: icon + title + status + amount */}
@@ -313,8 +363,8 @@ export default function MyBookingsPage() {
                               ? b.packageData.title
                               : `${b.type?.charAt(0) + b.type?.slice(1).toLowerCase()} Booking`}
                           </p>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE[b.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                            {b.status?.charAt(0) + b.status?.slice(1).toLowerCase()}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE[displayStatus] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                            {displayStatus?.charAt(0) + displayStatus?.slice(1).toLowerCase()}
                           </span>
                         </div>
                         {/* Booking detail row */}
@@ -373,8 +423,19 @@ export default function MyBookingsPage() {
                   </div>
                 )}
 
-                {/* Footer: cancel button */}
-                {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
+                {/* Footer: PENDING → complete payment | CONFIRMED (future) → cancel */}
+                {b.status === 'PENDING' && (
+                  <div className="border-t border-amber-100 px-5 py-3 flex items-center justify-between bg-amber-50">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700">⏳ Payment incomplete</p>
+                      <p className="text-xs text-amber-600">Complete payment to confirm your booking.</p>
+                    </div>
+                    <Button size="sm" onClick={() => { setRetryModal(b); setRetryCard({ number: '', expiry: '', cvv: '' }); setRetryError('') }}>
+                      Complete Payment
+                    </Button>
+                  </div>
+                )}
+                {!past && b.status === 'CONFIRMED' && (
                   <div className="border-t border-gray-100 px-5 py-2.5 flex justify-end bg-white">
                     <Button size="sm" variant="danger" loading={cancelling === b.id}
                       onClick={() => handleCancel(b.id)}>
@@ -385,6 +446,85 @@ export default function MyBookingsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Retry Payment Modal */}
+      {retryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">Complete Payment</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {retryModal.flight
+                    ? `${retryModal.flight.origin} → ${retryModal.flight.destination}`
+                    : 'Flight Booking'}
+                </p>
+              </div>
+              <button onClick={() => setRetryModal(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-4 flex items-center justify-between">
+              <span className="text-sm text-amber-700 font-medium">Amount due</span>
+              <span className="text-lg font-bold text-amber-800">₹{Number(retryModal.totalAmount).toLocaleString('en-IN')}</span>
+            </div>
+
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-4">
+              Demo mode — enter any card details. Use CVV <strong>000</strong> to simulate a failed payment.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Card Number</label>
+                <input
+                  type="text" maxLength={16} placeholder="4111 1111 1111 1111"
+                  value={retryCard.number}
+                  onChange={e => setRetryCard(c => ({ ...c, number: e.target.value.replace(/\D/g, '').slice(0, 16) }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Expiry (MM/YY)</label>
+                  <input
+                    type="text" placeholder="12/28"
+                    value={retryCard.expiry}
+                    onChange={e => setRetryCard(c => ({ ...c, expiry: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">CVV</label>
+                  <input
+                    type="text" maxLength={3} placeholder="123"
+                    value={retryCard.cvv}
+                    onChange={e => setRetryCard(c => ({ ...c, cvv: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {retryError && (
+              <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{retryError}</p>
+            )}
+
+            <div className="flex gap-3 mt-5">
+              <Button
+                loading={retrying}
+                disabled={!retryCard.number || !retryCard.expiry || !retryCard.cvv}
+                onClick={handleRetryPayment}
+                className="flex-1">
+                {retrying ? 'Processing…' : `Pay ₹${Number(retryModal.totalAmount).toLocaleString('en-IN')}`}
+              </Button>
+              <button
+                onClick={() => setRetryModal(null)}
+                className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
