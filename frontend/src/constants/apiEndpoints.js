@@ -26,10 +26,11 @@
     SEARCH: '/cabs/search',
   },
   BOOKINGS: {
-    CREATE: '/bookings',
-    LIST: '/bookings/my',
-    DETAIL: (id) => `/bookings/${id}`,
-    CANCEL: (id) => `/bookings/${id}/cancel`,
+    CREATE:          '/bookings',
+    LIST:            '/bookings/my',
+    DETAIL:          (id) => `/bookings/${id}`,
+    CANCEL:          (id) => `/bookings/${id}/cancel`,
+    CONFIRM_PAYMENT: (id) => `/bookings/${id}/confirm-payment`,
   },
   PAYMENTS: {
     INITIATE: '/payments/initiate',

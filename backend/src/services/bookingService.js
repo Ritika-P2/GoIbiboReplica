@@ -26,7 +26,22 @@ async function createBooking(userId, body) {
       throw err
     }
 
-    // Decrement available seats for transport bookings
+    // Prevent duplicate pending bookings: return existing one for same user+flight within 30 min
+    if (type === 'FLIGHT' && ids.flightId) {
+      const existing = await prisma.booking.findFirst({
+        where: {
+          userId,
+          type: 'FLIGHT',
+          flightId: ids.flightId,
+          status: 'PENDING',
+          createdAt: { gt: new Date(Date.now() - 30 * 60 * 1000) },
+        },
+        include: { flight: true, payment: { select: { status: true, method: true, paidAt: true, amount: true } } },
+      })
+      if (existing) return existing
+    }
+
+    // Hold seats immediately to prevent overbooking during payment window
     const seatModel = SEAT_MODEL[type]
     if (seatModel) {
       const entity = await prisma[seatModel].findUnique({ where: { id: ids[foreignKey] } })
@@ -47,7 +62,7 @@ async function createBooking(userId, body) {
       })
     }
 
-    // Decrement available rooms for hotel bookings
+    // Hold rooms for hotel bookings
     if (type === 'HOTEL' && ids.roomId) {
       const room = await prisma.room.findUnique({ where: { id: ids.roomId } })
       if (!room || room.availableRooms < 1) {
@@ -62,11 +77,15 @@ async function createBooking(userId, body) {
     }
   }
 
+  // For FLIGHT type: create as PENDING (awaiting payment confirmation)
+  // For all other types: create as CONFIRMED directly (existing behaviour)
+  const initialStatus = type === 'FLIGHT' ? 'PENDING' : 'CONFIRMED'
+
   const booking = await prisma.booking.create({
     data: {
       userId,
       type,
-      status:      'CONFIRMED',
+      status:      initialStatus,
       totalAmount: Number(totalAmount),
       passengers,
       contactInfo,
@@ -86,18 +105,60 @@ async function createBooking(userId, body) {
     },
   })
 
-  // Mark payment as SUCCESS immediately (demo: card payment confirmed at booking time)
+  // Create payment record: PENDING for flights, SUCCESS for all others
   await prisma.payment.create({
     data: {
       bookingId: booking.id,
-      amount: Number(totalAmount),
-      status: 'SUCCESS',
-      method: 'CARD',
-      paidAt: new Date(),
+      amount:    Number(totalAmount),
+      status:    type === 'FLIGHT' ? 'PENDING' : 'SUCCESS',
+      method:    type === 'FLIGHT' ? null : 'CARD',
+      paidAt:    type === 'FLIGHT' ? null : new Date(),
     },
   })
 
   return booking
+}
+
+async function confirmPayment(userId, bookingId) {
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, userId },
+  })
+  if (!booking) {
+    const err = new Error('Booking not found.')
+    err.status = 404
+    throw err
+  }
+  if (booking.status !== 'PENDING') {
+    const err = new Error('Booking is not in a pending state.')
+    err.status = 409
+    throw err
+  }
+
+  const [updated] = await Promise.all([
+    prisma.booking.update({
+      where: { id: bookingId },
+      data:  { status: 'CONFIRMED' },
+      include: {
+        flight:  { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
+        payment: { select: { status: true, method: true, paidAt: true, amount: true } },
+      },
+    }),
+    prisma.payment.updateMany({
+      where: { bookingId, status: 'PENDING' },
+      data:  { status: 'SUCCESS', method: 'CARD', paidAt: new Date() },
+    }),
+  ])
+
+  return updated
+}
+
+function getJourneyDate(booking) {
+  if (booking.type === 'FLIGHT' && booking.flight?.departureTime) return new Date(booking.flight.departureTime)
+  if (booking.type === 'TRAIN'  && booking.train?.departureTime)  return new Date(booking.train.departureTime)
+  if (booking.type === 'BUS'    && booking.bus?.departureTime)    return new Date(booking.bus.departureTime)
+  if (booking.type === 'HOTEL'  && booking.checkOut)              return new Date(booking.checkOut)
+  if (booking.type === 'HOLIDAY' && booking.checkOut)             return new Date(booking.checkOut)
+  return null
 }
 
 async function getMyBookings(userId, query) {
@@ -123,6 +184,21 @@ async function getMyBookings(userId, query) {
       },
     }),
   ])
+
+  // Auto-complete any CONFIRMED bookings whose journey date has passed
+  const now = new Date()
+  const toComplete = bookings
+    .filter(b => b.status === 'CONFIRMED')
+    .filter(b => { const jd = getJourneyDate(b); return jd && jd < now })
+    .map(b => b.id)
+
+  if (toComplete.length > 0) {
+    await prisma.booking.updateMany({
+      where: { id: { in: toComplete } },
+      data:  { status: 'COMPLETED' },
+    })
+    bookings.forEach(b => { if (toComplete.includes(b.id)) b.status = 'COMPLETED' })
+  }
 
   return { bookings, meta: getPaginationMeta(total, page, limit) }
 }
@@ -196,4 +272,4 @@ async function cancelBooking(userId, bookingId) {
   return updated
 }
 
-module.exports = { createBooking, getMyBookings, getBookingById, cancelBooking }
+module.exports = { createBooking, confirmPayment, getMyBookings, getBookingById, cancelBooking }
