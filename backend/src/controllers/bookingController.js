@@ -14,7 +14,8 @@ async function createBooking(req, res, next) {
 
 async function confirmPayment(req, res, next) {
   try {
-    const booking = await bookingService.confirmPayment(req.user.id, req.params.id)
+    const { totalAmount, packageData } = req.body || {}
+    const booking = await bookingService.confirmPayment(req.user.id, req.params.id, { totalAmount, packageData })
     res.json(successResponse('Payment confirmed. Booking is now active.', { booking }))
   } catch (err) { next(err) }
 }
