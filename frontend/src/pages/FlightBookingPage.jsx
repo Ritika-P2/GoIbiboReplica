@@ -44,8 +44,9 @@ export default function FlightBookingPage() {
 
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
-  // pendingBookingId is set as soon as the booking is saved to DB (before payment)
+  // pendingBookingId is set when user reaches Step 2 (before payment)
   const [pendingBookingId, setPendingBookingId] = useState(null)
+  const [creatingBooking, setCreatingBooking] = useState(false)
   const [passengerForms, setPassengerForms] = useState(
     Array.from({ length: Number(passengers) }, () => ({ name: '', age: '', gender: 'MALE' }))
   )
@@ -117,42 +118,83 @@ export default function FlightBookingPage() {
     setCouponInput('')
   }
 
+  // Called when user clicks "Review & Pay" (Step 1 → Step 2).
+  // Creates the PENDING booking immediately so it appears in My Bookings
+  // before the user has completed payment.
+  async function handleNavigateToStep2() {
+    if (!pendingBookingId) {
+      setCreatingBooking(true)
+      try {
+        const res = await bookingService.create({
+          type:        'FLIGHT',
+          flightId:    flight.id,
+          passengers:  passengerForms,
+          contactInfo: contact,
+          // Use pre-coupon amount; confirmPayment will correct it with the final price
+          totalAmount: baseFare - specialDiscount,
+          packageData: {
+            specialFare,
+            specialFareLabel: fareInfo.label,
+            specialDiscount,
+            couponCode:    null,
+            couponDiscount: 0,
+          },
+        })
+        setPendingBookingId(res.data.booking?.id)
+      } catch {
+        // Non-fatal: if creation fails, still let user reach Step 2;
+        // the booking will be created again when they click Pay
+      } finally {
+        setCreatingBooking(false)
+      }
+    }
+    setStep(2)
+  }
+
   async function handleBook() {
     dispatch(bookingStart())
     try {
-      // --- Phase 1: Create/retrieve the PENDING booking (seat is held) ---
       let bookingId = pendingBookingId
+
+      // Fallback: booking wasn't created at Step 2 entry (e.g. API was down)
       if (!bookingId) {
-        const payload = {
-          type: 'FLIGHT',
-          flightId: flight.id,
-          passengers: passengerForms,
+        const res = await bookingService.create({
+          type:        'FLIGHT',
+          flightId:    flight.id,
+          passengers:  passengerForms,
           contactInfo: contact,
           totalAmount: totalPrice,
           packageData: {
             specialFare,
             specialFareLabel: fareInfo.label,
             specialDiscount,
-            couponCode:     couponCode || null,
+            couponCode:    couponCode || null,
             couponDiscount,
           },
-        }
-        const res = await bookingService.create(payload)
+        })
         bookingId = res.data.booking?.id
         setPendingBookingId(bookingId)
       }
 
-      // --- Phase 2: Simulate payment processing ---
-      // Use CVV "000" to simulate a failed payment (for demo/testing purposes)
+      // Simulate payment — CVV "000" triggers a declined payment
       if (cardCVV === '000') {
         dispatch(bookingFailure(
-          'Payment declined by bank. Your booking is saved — you can retry payment from My Bookings.'
+          'Payment declined by bank. Your booking is saved — retry payment from My Bookings.'
         ))
         return
       }
 
-      // --- Phase 3: Confirm payment → transition PENDING → CONFIRMED ---
-      await bookingService.confirmPayment(bookingId)
+      // Confirm payment: pass the FINAL amount (with coupon) so DB stays correct
+      await bookingService.confirmPayment(bookingId, {
+        totalAmount: totalPrice,
+        packageData: {
+          specialFare,
+          specialFareLabel: fareInfo.label,
+          specialDiscount,
+          couponCode:    couponCode || null,
+          couponDiscount,
+        },
+      })
       dispatch(bookingSuccess({ bookingId }))
       setPaymentDone(true)
       setTimeout(() => {
@@ -273,7 +315,13 @@ export default function FlightBookingPage() {
                 placeholder="+91 98765 43210" />
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" onClick={() => setStep(0)}>Back</Button>
-                <Button disabled={!step2Valid()} onClick={() => setStep(2)}>Review & Pay</Button>
+                <Button
+                  disabled={!step2Valid() || creatingBooking}
+                  loading={creatingBooking}
+                  onClick={handleNavigateToStep2}
+                >
+                  {creatingBooking ? 'Saving booking…' : 'Review & Pay'}
+                </Button>
               </div>
             </div>
           )}

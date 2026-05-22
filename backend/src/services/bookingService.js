@@ -119,7 +119,7 @@ async function createBooking(userId, body) {
   return booking
 }
 
-async function confirmPayment(userId, bookingId) {
+async function confirmPayment(userId, bookingId, { totalAmount, packageData } = {}) {
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, userId },
   })
@@ -134,10 +134,19 @@ async function confirmPayment(userId, bookingId) {
     throw err
   }
 
+  // Build booking update — apply final coupon-adjusted amount + packageData if supplied
+  const bookingUpdate = { status: 'CONFIRMED' }
+  if (totalAmount  !== undefined) bookingUpdate.totalAmount = Number(totalAmount)
+  if (packageData  !== undefined) bookingUpdate.packageData = packageData
+
+  // Build payment update — also correct the stored amount to the final paid value
+  const paymentUpdate = { status: 'SUCCESS', method: 'CARD', paidAt: new Date() }
+  if (totalAmount !== undefined) paymentUpdate.amount = Number(totalAmount)
+
   const [updated] = await Promise.all([
     prisma.booking.update({
       where: { id: bookingId },
-      data:  { status: 'CONFIRMED' },
+      data:  bookingUpdate,
       include: {
         flight:  { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
         payment: { select: { status: true, method: true, paidAt: true, amount: true } },
@@ -145,7 +154,7 @@ async function confirmPayment(userId, bookingId) {
     }),
     prisma.payment.updateMany({
       where: { bookingId, status: 'PENDING' },
-      data:  { status: 'SUCCESS', method: 'CARD', paidAt: new Date() },
+      data:  paymentUpdate,
     }),
   ])
 
