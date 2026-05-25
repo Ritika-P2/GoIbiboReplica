@@ -43,7 +43,8 @@ model Flight {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  bookings Booking[]
+  bookings       Booking[] @relation("OutboundFlight")
+  returnBookings Booking[] @relation("ReturnFlight")
 
   @@map("flights")
 }
@@ -159,20 +160,22 @@ model Booking {
   passengers  Json
   contactInfo Json
   packageData Json?
-  flightId    String?
-  hotelId     String?
-  roomId      String?
-  trainId     String?
-  busId       String?
-  cabId       String?
-  checkIn     DateTime?
-  checkOut    DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  flightId        String?
+  returnFlightId  String?
+  hotelId         String?
+  roomId          String?
+  trainId         String?
+  busId           String?
+  cabId           String?
+  checkIn         DateTime?
+  checkOut        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  user    User     @relation(fields: [userId], references: [id])
-  flight  Flight?  @relation(fields: [flightId], references: [id])
-  hotel   Hotel?   @relation(fields: [hotelId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  flight        Flight?  @relation("OutboundFlight", fields: [flightId], references: [id])
+  returnFlight  Flight?  @relation("ReturnFlight", fields: [returnFlightId], references: [id])
+  hotel         Hotel?   @relation(fields: [hotelId], references: [id])
   room    Room?    @relation(fields: [roomId], references: [id])
   train   Train?   @relation(fields: [trainId], references: [id])
   bus     Bus?     @relation(fields: [busId], references: [id])
