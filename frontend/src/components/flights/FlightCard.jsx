@@ -17,7 +17,7 @@ const AIRLINE_COLORS = {
   'AirAsia':   'bg-red-100 text-red-700',
 }
 
-export default function FlightCard({ flight, onSelect, specialFare = 'REGULAR', discountedPrice }) {
+export default function FlightCard({ flight, onSelect, specialFare = 'REGULAR', discountedPrice, selectLabel = 'Book' }) {
   const displayPrice = discountedPrice ?? Number(flight.price)
   const originalPrice = Number(flight.price)
   const hasDiscount = specialFare !== 'REGULAR' && discountedPrice != null && discountedPrice < originalPrice
@@ -101,7 +101,7 @@ export default function FlightCard({ flight, onSelect, specialFare = 'REGULAR', 
           </div>
           <button onClick={() => onSelect(flight)}
             className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-2 rounded-lg transition-colors mt-3">
-            Book
+            {selectLabel}
           </button>
         </div>
       </div>
