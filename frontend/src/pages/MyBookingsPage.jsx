@@ -92,7 +92,54 @@ function FlightSegmentRow({ flight, label }) {
   )
 }
 
+function MultiCitySegmentRow({ seg, index }) {
+  return (
+    <div>
+      {index > 0 && <div className="border-t border-dashed border-gray-100 my-2" />}
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded shrink-0">
+          Seg {index + 1}
+        </span>
+        <span className="text-xs text-gray-400">{seg.origin} → {seg.destination}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="text-center shrink-0">
+          <p className="text-base font-bold text-gray-900">{seg.departureTime ? fmtTime(seg.departureTime) : '—'}</p>
+          <p className="text-xs font-semibold text-gray-700">{seg.origin}</p>
+        </div>
+        <div className="flex-1 text-center px-2">
+          <p className="text-xs text-gray-400">{seg.airline} · {seg.flightNumber}</p>
+          <div className="relative flex items-center my-1">
+            <div className="flex-1 h-px bg-gray-300" />
+            <span className="mx-1 text-sm">✈️</span>
+            <div className="flex-1 h-px bg-gray-300" />
+          </div>
+          <p className="text-xs text-gray-400">₹{Number(seg.fare).toLocaleString('en-IN')}</p>
+        </div>
+        <div className="text-center shrink-0">
+          <p className="text-base font-bold text-gray-900">{seg.arrivalTime ? fmtTime(seg.arrivalTime) : '—'}</p>
+          <p className="text-xs font-semibold text-gray-700">{seg.destination}</p>
+        </div>
+        <div className="ml-3 text-right shrink-0">
+          <p className="text-xs text-gray-400">Date</p>
+          <p className="text-xs font-medium text-gray-700">{seg.date ? fmtDate(seg.date) : '—'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function BookingDetails({ b }) {
+  if (b.type === 'FLIGHT' && b.packageData?.tripType === 'MULTI_CITY' && b.packageData.segments?.length > 0) {
+    return (
+      <div className="mt-2">
+        {b.packageData.segments.map((seg, i) => (
+          <MultiCitySegmentRow key={i} seg={seg} index={i} />
+        ))}
+      </div>
+    )
+  }
+
   if (b.type === 'FLIGHT' && b.flight) {
     const isRoundTrip = !!b.returnFlight
     return (
@@ -368,7 +415,9 @@ export default function MyBookingsPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-gray-900 text-base">
-                            {b.type === 'FLIGHT' && b.flight
+                            {b.type === 'FLIGHT' && b.packageData?.tripType === 'MULTI_CITY' && b.packageData.segments?.length > 0
+                              ? b.packageData.segments.map(s => s.origin).concat([b.packageData.segments[b.packageData.segments.length - 1].destination]).join(' → ')
+                              : b.type === 'FLIGHT' && b.flight
                               ? b.returnFlight
                                 ? `${b.flight.origin} ⇌ ${b.flight.destination}`
                                 : `${b.flight.origin} → ${b.flight.destination}`
@@ -476,7 +525,9 @@ export default function MyBookingsPage() {
               <div>
                 <h3 className="font-bold text-gray-900 text-lg">Complete Payment</h3>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {retryModal.flight
+                  {retryModal.packageData?.tripType === 'MULTI_CITY' && retryModal.packageData.segments?.length > 0
+                    ? retryModal.packageData.segments.map(s => s.origin).concat([retryModal.packageData.segments[retryModal.packageData.segments.length - 1].destination]).join(' → ') + ' (Multi-City)'
+                    : retryModal.flight
                     ? retryModal.returnFlight
                       ? `${retryModal.flight.origin} ⇌ ${retryModal.flight.destination} (Round Trip)`
                       : `${retryModal.flight.origin} → ${retryModal.flight.destination}`

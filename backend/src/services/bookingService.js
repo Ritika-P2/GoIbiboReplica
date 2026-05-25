@@ -70,7 +70,6 @@ async function createBooking(userId, body) {
       if (type === 'FLIGHT' && returnFlightId) {
         const returnEntity = await prisma.flight.findUnique({ where: { id: returnFlightId } })
         if (!returnEntity) {
-          // Roll back outbound seat hold before throwing
           await prisma.flight.update({
             where: { id: ids[foreignKey] },
             data:  { availableSeats: { increment: seatsNeeded } },
@@ -80,7 +79,6 @@ async function createBooking(userId, body) {
           throw err
         }
         if (returnEntity.availableSeats < seatsNeeded) {
-          // Roll back outbound seat hold before throwing
           await prisma.flight.update({
             where: { id: ids[foreignKey] },
             data:  { availableSeats: { increment: seatsNeeded } },
@@ -93,6 +91,33 @@ async function createBooking(userId, body) {
           where: { id: returnFlightId },
           data:  { availableSeats: { decrement: seatsNeeded } },
         })
+      }
+
+      // Hold seats for additional multi-city segments (segment 0 already held via flightId above)
+      if (type === 'FLIGHT' && packageData?.tripType === 'MULTI_CITY' && packageData.segments?.length > 1) {
+        const heldIds = [ids[foreignKey]]
+        for (const seg of packageData.segments.slice(1)) {
+          if (!seg.flightId) continue
+          const segFlight = await prisma.flight.findUnique({ where: { id: seg.flightId } })
+          if (!segFlight) {
+            for (const heldId of heldIds) {
+              await prisma.flight.update({ where: { id: heldId }, data: { availableSeats: { increment: seatsNeeded } } })
+            }
+            const err = new Error('Flight not found for one of the multi-city segments.')
+            err.status = 404
+            throw err
+          }
+          if (segFlight.availableSeats < seatsNeeded) {
+            for (const heldId of heldIds) {
+              await prisma.flight.update({ where: { id: heldId }, data: { availableSeats: { increment: seatsNeeded } } })
+            }
+            const err = new Error('Not enough seats available on one of the multi-city segments.')
+            err.status = 409
+            throw err
+          }
+          await prisma.flight.update({ where: { id: seg.flightId }, data: { availableSeats: { decrement: seatsNeeded } } })
+          heldIds.push(seg.flightId)
+        }
       }
     }
 
@@ -306,6 +331,18 @@ async function cancelBooking(userId, bookingId) {
           where: { id: booking.returnFlightId },
           data:  { availableSeats: { increment: seatsToRestore } },
         })
+      }
+
+      // Restore seats for additional multi-city segments (segment 0 restored above via flightId)
+      if (booking.type === 'FLIGHT' && booking.packageData?.tripType === 'MULTI_CITY' && booking.packageData.segments?.length > 1) {
+        for (const seg of booking.packageData.segments.slice(1)) {
+          if (seg.flightId) {
+            await prisma.flight.update({
+              where: { id: seg.flightId },
+              data:  { availableSeats: { increment: seatsToRestore } },
+            })
+          }
+        }
       }
     }
   }

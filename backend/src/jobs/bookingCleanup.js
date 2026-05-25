@@ -17,7 +17,7 @@ async function bookingCleanup() {
         createdAt: { lt: cutoff },
         type: { in: ['FLIGHT', 'TRAIN', 'BUS'] },
       },
-      select: { id: true, type: true, flightId: true, returnFlightId: true, trainId: true, busId: true, passengers: true },
+      select: { id: true, type: true, flightId: true, returnFlightId: true, trainId: true, busId: true, passengers: true, packageData: true },
     })
 
     for (const b of expiredPending) {
@@ -36,6 +36,17 @@ async function bookingCleanup() {
             where: { id: b.returnFlightId },
             data:  { availableSeats: { increment: seatsToRestore } },
           })
+        }
+        // Restore seats for additional multi-city segments (segment 0 restored above)
+        if (b.type === 'FLIGHT' && b.packageData?.tripType === 'MULTI_CITY' && b.packageData.segments?.length > 1) {
+          for (const seg of b.packageData.segments.slice(1)) {
+            if (seg.flightId) {
+              await prisma.flight.update({
+                where: { id: seg.flightId },
+                data:  { availableSeats: { increment: seatsToRestore } },
+              })
+            }
+          }
         }
       }
     }
