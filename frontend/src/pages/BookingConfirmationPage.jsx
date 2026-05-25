@@ -15,7 +15,7 @@ export default function BookingConfirmationPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { bookingId, type, flight, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount, specialFare, specialDiscount } = location.state || {}
+  const { bookingId, type, flight, returnFlight, isRoundTrip, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount, specialFare, specialDiscount } = location.state || {}
 
   const SPECIAL_FARE_LABELS = {
     REGULAR: null,
@@ -76,7 +76,12 @@ export default function BookingConfirmationPage() {
           {/* Flight details */}
           {type === 'FLIGHT' && flight && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Flight Details</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                {isRoundTrip ? 'Flight Details — Round Trip' : 'Flight Details'}
+              </h2>
+
+              {/* Onward segment */}
+              {isRoundTrip && <p className="text-xs font-semibold text-blue-500 uppercase mb-2 tracking-wide">Onward · {flight.origin} → {flight.destination}</p>}
               <div className="flex items-center justify-between">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900">{fmt(flight.departureTime)}</p>
@@ -94,6 +99,32 @@ export default function BookingConfirmationPage() {
                   <p className="text-gray-600 font-medium">{flight.destination}</p>
                 </div>
               </div>
+
+              {/* Return segment */}
+              {isRoundTrip && returnFlight && (
+                <>
+                  <div className="border-t border-dashed border-gray-200 my-4" />
+                  <p className="text-xs font-semibold text-orange-500 uppercase mb-2 tracking-wide">Return · {returnFlight.origin} → {returnFlight.destination}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{fmt(returnFlight.departureTime)}</p>
+                      <p className="text-gray-600 font-medium">{returnFlight.origin}</p>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center px-4">
+                      <p className="text-xs text-gray-400 mb-1">{returnFlight.airline} · {returnFlight.flightNumber}</p>
+                      <div className="w-full h-px bg-gray-300 relative">
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg">✈️</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{returnFlight.stops === 0 ? 'Non-stop' : `${returnFlight.stops} stop`}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{fmt(returnFlight.arrivalTime)}</p>
+                      <p className="text-gray-600 font-medium">{returnFlight.destination}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {specialFare && specialFare !== 'REGULAR' && SPECIAL_FARE_LABELS[specialFare] && (
                 <div className="mt-3 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-sm">
                   <span>{SPECIAL_FARE_LABELS[specialFare].icon}</span>

@@ -16,7 +16,7 @@ const SEAT_MODEL = {
 }
 
 async function createBooking(userId, body) {
-  const { type, passengers, contactInfo, totalAmount, checkIn, checkOut, packageData, ...ids } = body
+  const { type, passengers, contactInfo, totalAmount, checkIn, checkOut, packageData, returnFlightId, ...ids } = body
 
   if (type !== 'HOLIDAY') {
     const foreignKey = TYPE_FIELD[type]
@@ -33,10 +33,15 @@ async function createBooking(userId, body) {
           userId,
           type: 'FLIGHT',
           flightId: ids.flightId,
+          returnFlightId: returnFlightId || null,
           status: 'PENDING',
           createdAt: { gt: new Date(Date.now() - 30 * 60 * 1000) },
         },
-        include: { flight: true, payment: { select: { status: true, method: true, paidAt: true, amount: true } } },
+        include: {
+          flight:       true,
+          returnFlight: true,
+          payment:      { select: { status: true, method: true, paidAt: true, amount: true } },
+        },
       })
       if (existing) return existing
     }
@@ -60,6 +65,35 @@ async function createBooking(userId, body) {
         where: { id: ids[foreignKey] },
         data:  { availableSeats: { decrement: seatsNeeded } },
       })
+
+      // Hold seats on return flight too (round-trip flight bookings)
+      if (type === 'FLIGHT' && returnFlightId) {
+        const returnEntity = await prisma.flight.findUnique({ where: { id: returnFlightId } })
+        if (!returnEntity) {
+          // Roll back outbound seat hold before throwing
+          await prisma.flight.update({
+            where: { id: ids[foreignKey] },
+            data:  { availableSeats: { increment: seatsNeeded } },
+          })
+          const err = new Error('Return flight not found.')
+          err.status = 404
+          throw err
+        }
+        if (returnEntity.availableSeats < seatsNeeded) {
+          // Roll back outbound seat hold before throwing
+          await prisma.flight.update({
+            where: { id: ids[foreignKey] },
+            data:  { availableSeats: { increment: seatsNeeded } },
+          })
+          const err = new Error('Not enough seats available on the return flight.')
+          err.status = 409
+          throw err
+        }
+        await prisma.flight.update({
+          where: { id: returnFlightId },
+          data:  { availableSeats: { decrement: seatsNeeded } },
+        })
+      }
     }
 
     // Hold rooms for hotel bookings
@@ -92,16 +126,18 @@ async function createBooking(userId, body) {
       packageData: packageData || null,
       checkIn:  checkIn  ? new Date(checkIn)  : null,
       checkOut: checkOut ? new Date(checkOut) : null,
-      ...(ids.flightId ? { flightId: ids.flightId } : {}),
-      ...(ids.hotelId  ? { hotelId:  ids.hotelId  } : {}),
-      ...(ids.roomId   ? { roomId:   ids.roomId   } : {}),
-      ...(ids.trainId  ? { trainId:  ids.trainId  } : {}),
-      ...(ids.busId    ? { busId:    ids.busId    } : {}),
-      ...(ids.cabId    ? { cabId:    ids.cabId    } : {}),
+      ...(ids.flightId      ? { flightId:       ids.flightId       } : {}),
+      ...(returnFlightId    ? { returnFlightId                      } : {}),
+      ...(ids.hotelId       ? { hotelId:        ids.hotelId        } : {}),
+      ...(ids.roomId        ? { roomId:         ids.roomId         } : {}),
+      ...(ids.trainId       ? { trainId:        ids.trainId        } : {}),
+      ...(ids.busId         ? { busId:          ids.busId          } : {}),
+      ...(ids.cabId         ? { cabId:          ids.cabId          } : {}),
     },
     include: {
-      flight: true, hotel: true, room: true,
-      train: true,  bus: true,   cab: true,
+      flight: true, returnFlight: true,
+      hotel: true, room: true,
+      train: true,  bus: true, cab: true,
     },
   })
 
@@ -148,8 +184,9 @@ async function confirmPayment(userId, bookingId, { totalAmount, packageData } = 
       where: { id: bookingId },
       data:  bookingUpdate,
       include: {
-        flight:  { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
-        payment: { select: { status: true, method: true, paidAt: true, amount: true } },
+        flight:       { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
+        returnFlight: { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
+        payment:      { select: { status: true, method: true, paidAt: true, amount: true } },
       },
     }),
     prisma.payment.updateMany({
@@ -176,6 +213,8 @@ async function getMyBookings(userId, query) {
   if (query.type)   where.type   = query.type.toUpperCase()
   if (query.status) where.status = query.status.toUpperCase()
 
+  const flightSelect = { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } }
+
   const [total, bookings] = await Promise.all([
     prisma.booking.count({ where }),
     prisma.booking.findMany({
@@ -184,12 +223,13 @@ async function getMyBookings(userId, query) {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        flight:  { select: { flightNumber: true, airline: true, origin: true, destination: true, departureTime: true, arrivalTime: true, cabinClass: true } },
-        hotel:   { select: { name: true, city: true, address: true, starRating: true } },
-        room:    { select: { type: true, pricePerNight: true } },
-        train:   { select: { trainName: true, trainNumber: true, origin: true, destination: true, departureTime: true, arrivalTime: true, duration: true } },
-        bus:     { select: { operator: true, busType: true, origin: true, destination: true, departureTime: true, arrivalTime: true, duration: true } },
-        payment: { select: { status: true, method: true, paidAt: true, amount: true } },
+        flight:       flightSelect,
+        returnFlight: flightSelect,
+        hotel:        { select: { name: true, city: true, address: true, starRating: true } },
+        room:         { select: { type: true, pricePerNight: true } },
+        train:        { select: { trainName: true, trainNumber: true, origin: true, destination: true, departureTime: true, arrivalTime: true, duration: true } },
+        bus:          { select: { operator: true, busType: true, origin: true, destination: true, departureTime: true, arrivalTime: true, duration: true } },
+        payment:      { select: { status: true, method: true, paidAt: true, amount: true } },
       },
     }),
   ])
@@ -216,8 +256,9 @@ async function getBookingById(userId, bookingId) {
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, userId },
     include: {
-      flight: true, hotel: true, room: true,
-      train: true,  bus: true,   cab: true,
+      flight: true, returnFlight: true,
+      hotel: true, room: true,
+      train: true,  bus: true, cab: true,
       payment: true,
     },
   })
@@ -258,6 +299,14 @@ async function cancelBooking(userId, bookingId) {
         where: { id: entityId },
         data:  { availableSeats: { increment: seatsToRestore } },
       })
+
+      // Restore return flight seats too (round-trip)
+      if (booking.type === 'FLIGHT' && booking.returnFlightId) {
+        await prisma.flight.update({
+          where: { id: booking.returnFlightId },
+          data:  { availableSeats: { increment: seatsToRestore } },
+        })
+      }
     }
   }
   if (booking.type === 'HOTEL' && booking.roomId) {
