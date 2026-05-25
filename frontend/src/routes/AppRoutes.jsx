@@ -10,6 +10,7 @@ import ModuleRoute from './ModuleRoute'
 import HomePage from '../pages/HomePage'
 import FlightsPage from '../pages/FlightsPage'
 import FlightResultsPage from '../pages/FlightResultsPage'
+import MultiCityResultsPage from '../pages/MultiCityResultsPage'
 import FlightBookingPage from '../pages/FlightBookingPage'
 import HotelsPage from '../pages/HotelsPage'
 import HotelResultsPage from '../pages/HotelResultsPage'
@@ -72,7 +73,8 @@ export default function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route path={ROUTES.HOME}               element={<HomePage />} />
         <Route path={ROUTES.FLIGHTS}            element={<FlightsPage />} />
-        <Route path={ROUTES.FLIGHT_RESULTS}     element={<FlightResultsPage />} />
+        <Route path={ROUTES.FLIGHT_RESULTS}      element={<FlightResultsPage />} />
+        <Route path={ROUTES.MULTI_CITY_RESULTS}  element={<MultiCityResultsPage />} />
         <Route path={ROUTES.HOTELS}             element={<HotelsPage />} />
         <Route path={ROUTES.HOTEL_RESULTS}      element={<HotelResultsPage />} />
         <Route path={ROUTES.HOTEL_DETAIL}       element={<HotelDetailPage />} />

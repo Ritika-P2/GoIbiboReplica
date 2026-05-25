@@ -4,6 +4,7 @@
   REGISTER: '/register',
   FLIGHTS: '/flights',
   FLIGHT_RESULTS: '/flights/results',
+  MULTI_CITY_RESULTS: '/flights/multi-city',
   FLIGHT_BOOKING: '/flights/booking',
   HOTELS: '/hotels',
   HOTEL_RESULTS: '/hotels/results',
