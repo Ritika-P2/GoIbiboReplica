@@ -17,7 +17,7 @@ async function bookingCleanup() {
         createdAt: { lt: cutoff },
         type: { in: ['FLIGHT', 'TRAIN', 'BUS'] },
       },
-      select: { id: true, type: true, flightId: true, trainId: true, busId: true, passengers: true },
+      select: { id: true, type: true, flightId: true, returnFlightId: true, trainId: true, busId: true, passengers: true },
     })
 
     for (const b of expiredPending) {
@@ -30,6 +30,13 @@ async function bookingCleanup() {
           where: { id: entityId },
           data:  { availableSeats: { increment: seatsToRestore } },
         })
+        // Restore return flight seats too (round-trip)
+        if (b.type === 'FLIGHT' && b.returnFlightId) {
+          await prisma.flight.update({
+            where: { id: b.returnFlightId },
+            data:  { availableSeats: { increment: seatsToRestore } },
+          })
+        }
       }
     }
 

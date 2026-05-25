@@ -5,6 +5,7 @@ const bookingValidator = [
   body('passengers').isArray({ min: 1 }).withMessage('At least one passenger required'),
   body('contactInfo').notEmpty().withMessage('Contact info is required'),
   body('totalAmount').isNumeric().withMessage('Total amount must be a number'),
+  body('returnFlightId').optional().isString().withMessage('returnFlightId must be a string'),
 ]
 
 module.exports = { bookingValidator }
