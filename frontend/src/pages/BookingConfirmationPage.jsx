@@ -15,7 +15,7 @@ export default function BookingConfirmationPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { bookingId, type, flight, returnFlight, isRoundTrip, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount, specialFare, specialDiscount } = location.state || {}
+  const { bookingId, type, flight, returnFlight, isRoundTrip, isMultiCity, mcSegments, hotel, room, train, bus, selectedClass, classPrice, passengers, guests, contact, totalPrice, checkIn, checkOut, nights, date, pkg, travellers, adults, children, couponCode, couponDiscount, specialFare, specialDiscount } = location.state || {}
 
   const SPECIAL_FARE_LABELS = {
     REGULAR: null,
@@ -73,8 +73,56 @@ export default function BookingConfirmationPage() {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Flight details */}
-          {type === 'FLIGHT' && flight && (
+          {/* Multi-city flight details */}
+          {type === 'FLIGHT' && isMultiCity && mcSegments?.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Flight Details — Multi-City ({mcSegments.length} Segments)
+              </h2>
+              {mcSegments.map((seg, i) => (
+                <div key={i}>
+                  {i > 0 && <div className="border-t border-dashed border-gray-200 my-4" />}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
+                      Segment {i + 1}
+                    </span>
+                    <span className="text-xs text-gray-500">{seg.origin} → {seg.destination}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{fmtDate(seg.date)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{fmt(seg.departureTime)}</p>
+                      <p className="text-gray-600 font-medium">{seg.origin}</p>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center px-4">
+                      <p className="text-xs text-gray-400 mb-1">{seg.airline} · {seg.flightNumber}</p>
+                      <div className="w-full h-px bg-gray-300 relative">
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg">✈️</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{seg.stops === 0 ? 'Non-stop' : `${seg.stops} stop`}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{fmt(seg.arrivalTime)}</p>
+                      <p className="text-gray-600 font-medium">{seg.destination}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <span className="text-sm font-semibold text-gray-700">₹{Number(seg.fare).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ))}
+              {specialFare && specialFare !== 'REGULAR' && SPECIAL_FARE_LABELS[specialFare] && (
+                <div className="mt-3 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-sm">
+                  <span>{SPECIAL_FARE_LABELS[specialFare].icon}</span>
+                  <span className="text-blue-700 font-medium">{SPECIAL_FARE_LABELS[specialFare].label}</span>
+                  {specialDiscount > 0 && <span className="text-green-600 ml-auto">−₹{Number(specialDiscount).toLocaleString('en-IN')}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* One-way / Round-trip flight details */}
+          {type === 'FLIGHT' && !isMultiCity && flight && (
             <div>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 {isRoundTrip ? 'Flight Details — Round Trip' : 'Flight Details'}

@@ -77,8 +77,16 @@ export default function FlightBookingPage() {
   const dispatch = useDispatch()
   const { loading, error } = useSelector(s => s.booking)
 
-  const { flight, returnFlight, returnDate, passengers = 1, cabin = 'ECONOMY', specialFare = 'REGULAR' } = location.state || {}
-  const isRoundTrip = !!returnFlight
+  const {
+    // one-way / round-trip
+    flight, returnFlight, returnDate,
+    // multi-city
+    isMultiCity, mcSegments,
+    // shared
+    passengers = 1, cabin = 'ECONOMY', specialFare = 'REGULAR',
+  } = location.state || {}
+
+  const isRoundTrip = !isMultiCity && !!returnFlight
 
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
@@ -92,7 +100,6 @@ export default function FlightBookingPage() {
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCVV, setCardCVV] = useState('')
 
-  // Coupon state (only usable when specialFare === REGULAR)
   const [couponCode, setCouponCode] = useState('')
   const [couponInput, setCouponInput] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
@@ -100,7 +107,8 @@ export default function FlightBookingPage() {
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
 
-  if (!flight) {
+  // Guard: no flight data
+  if (!isMultiCity && !flight) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <p className="text-gray-500 text-lg">No flight selected.</p>
@@ -108,12 +116,35 @@ export default function FlightBookingPage() {
       </div>
     )
   }
+  if (isMultiCity && (!mcSegments || mcSegments.length === 0)) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+        <p className="text-gray-500 text-lg">No multi-city segments found.</p>
+        <Button className="mt-4" onClick={() => navigate(ROUTES.FLIGHTS)}>Search Flights</Button>
+      </div>
+    )
+  }
 
-  // Price calculation — includes both legs for round trips
-  const onwardFare      = Number(flight.price) * Number(passengers)
-  const returnFare      = isRoundTrip ? Number(returnFlight.price) * Number(passengers) : 0
-  const baseFare        = onwardFare + returnFare
-  const fareInfo        = SPECIAL_FARES[specialFare] || SPECIAL_FARES.REGULAR
+  // ── Price calculation ──
+  const fareInfo = SPECIAL_FARES[specialFare] || SPECIAL_FARES.REGULAR
+
+  function applyDiscount(price) {
+    if (!fareInfo.discount) return Number(price)
+    if (fareInfo.discount.type === 'PERCENT') return Math.round(Number(price) * (1 - fareInfo.discount.value / 100))
+    if (fareInfo.discount.type === 'FLAT')    return Math.max(0, Number(price) - fareInfo.discount.value)
+    return Number(price)
+  }
+
+  let baseFare, segmentFares
+  if (isMultiCity) {
+    segmentFares = mcSegments.map(s => applyDiscount(s.flight.price) * Number(passengers))
+    baseFare     = segmentFares.reduce((a, b) => a + b, 0)
+  } else if (isRoundTrip) {
+    baseFare = (Number(flight.price) + Number(returnFlight.price)) * Number(passengers)
+  } else {
+    baseFare = Number(flight.price) * Number(passengers)
+  }
+
   const specialDiscount = computeDiscount(specialFare, baseFare)
   const totalDiscount   = specialDiscount + couponDiscount
   const totalPrice      = Math.max(0, baseFare - totalDiscount)
@@ -123,62 +154,78 @@ export default function FlightBookingPage() {
     setPassengerForms(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
   }
 
-  function step1Valid() {
-    return passengerForms.every(p => p.name.trim() && p.age && Number(p.age) > 0)
-  }
-  function step2Valid() {
-    return contact.email.includes('@') && contact.phone.length >= 10
-  }
+  function step1Valid() { return passengerForms.every(p => p.name.trim() && p.age && Number(p.age) > 0) }
+  function step2Valid() { return contact.email.includes('@') && contact.phone.length >= 10 }
 
   async function applyCoupon() {
     if (!couponInput.trim()) return
-    setCouponLoading(true)
-    setCouponError('')
+    setCouponLoading(true); setCouponError('')
     try {
       const res = await couponService.validate(couponInput.trim().toUpperCase(), baseFare)
       const { code, discount, description } = res.data
-      setCouponCode(code)
-      setCouponDiscount(discount)
-      setCouponDesc(description)
-      setCouponInput('')
+      setCouponCode(code); setCouponDiscount(discount); setCouponDesc(description); setCouponInput('')
     } catch (e) {
       setCouponError(e.message || 'Invalid coupon code')
-      setCouponDiscount(0)
-      setCouponCode('')
-    } finally {
-      setCouponLoading(false)
-    }
+      setCouponDiscount(0); setCouponCode('')
+    } finally { setCouponLoading(false) }
   }
 
   function removeCoupon() {
-    setCouponCode('')
-    setCouponDiscount(0)
-    setCouponDesc('')
-    setCouponError('')
-    setCouponInput('')
+    setCouponCode(''); setCouponDiscount(0); setCouponDesc(''); setCouponError(''); setCouponInput('')
   }
 
-  // Build the booking payload (shared between Step-2 creation and Pay fallback)
-  function buildBookingPayload(finalAmount) {
+  // Build the booking payload
+  function buildPayload(amount) {
+    if (isMultiCity) {
+      return {
+        type:        'FLIGHT',
+        flightId:    mcSegments[0].flightId,
+        passengers:  passengerForms,
+        contactInfo: contact,
+        totalAmount: amount,
+        packageData: {
+          tripType:         'MULTI_CITY',
+          segmentCount:     mcSegments.length,
+          segments:         mcSegments.map(s => ({
+            order:         s.order,
+            flightId:      s.flightId,
+            origin:        s.origin,
+            destination:   s.destination,
+            date:          s.date,
+            fare:          s.fare,
+            airline:       s.flight.airline,
+            flightNumber:  s.flight.flightNumber,
+            departureTime: s.flight.departureTime,
+            arrivalTime:   s.flight.arrivalTime,
+            duration:      s.flight.duration,
+            stops:         s.flight.stops,
+            cabinClass:    s.flight.cabinClass,
+          })),
+          specialFare,
+          specialFareLabel: fareInfo.label,
+          specialDiscount,
+          couponCode:       null,
+          couponDiscount:   0,
+        },
+      }
+    }
     return {
       type:           'FLIGHT',
       flightId:       flight.id,
       ...(isRoundTrip ? { returnFlightId: returnFlight.id } : {}),
       passengers:     passengerForms,
       contactInfo:    contact,
-      totalAmount:    finalAmount,
+      totalAmount:    amount,
       packageData: {
-        tripType:          isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
+        tripType:         isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
         specialFare,
-        specialFareLabel:  fareInfo.label,
+        specialFareLabel: fareInfo.label,
         specialDiscount,
-        couponCode:        null,
-        couponDiscount:    0,
+        couponCode:       null,
+        couponDiscount:   0,
         ...(isRoundTrip ? {
-          onwardFlightId:   flight.id,
-          returnFlightId:   returnFlight.id,
-          onwardFare,
-          returnFare,
+          onwardFare:     Number(flight.price) * Number(passengers),
+          returnFare:     Number(returnFlight.price) * Number(passengers),
         } : {}),
       },
     }
@@ -188,13 +235,10 @@ export default function FlightBookingPage() {
     if (!pendingBookingId) {
       setCreatingBooking(true)
       try {
-        const res = await bookingService.create(buildBookingPayload(baseFare - specialDiscount))
+        const res = await bookingService.create(buildPayload(baseFare - specialDiscount))
         setPendingBookingId(res.data.booking?.id)
-      } catch {
-        // Non-fatal: fallback in handleBook
-      } finally {
-        setCreatingBooking(false)
-      }
+      } catch { /* non-fatal */ }
+      finally { setCreatingBooking(false) }
     }
     setStep(2)
   }
@@ -203,35 +247,30 @@ export default function FlightBookingPage() {
     dispatch(bookingStart())
     try {
       let bookingId = pendingBookingId
-
       if (!bookingId) {
-        const res = await bookingService.create(buildBookingPayload(totalPrice))
+        const res = await bookingService.create(buildPayload(totalPrice))
         bookingId = res.data.booking?.id
         setPendingBookingId(bookingId)
       }
-
       if (cardCVV === '000') {
-        dispatch(bookingFailure(
-          'Payment declined by bank. Your booking is saved — retry payment from My Bookings.'
-        ))
+        dispatch(bookingFailure('Payment declined by bank. Your booking is saved — retry payment from My Bookings.'))
         return
       }
-
       await bookingService.confirmPayment(bookingId, {
         totalAmount: totalPrice,
         packageData: {
-          tripType:         isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
+          ...(isMultiCity ? {
+            tripType:     'MULTI_CITY',
+            segmentCount: mcSegments.length,
+            segments:     mcSegments.map(s => ({ ...s, fare: s.fare })),
+          } : {
+            tripType:    isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
+          }),
           specialFare,
           specialFareLabel: fareInfo.label,
           specialDiscount,
-          couponCode:       couponCode || null,
+          couponCode:    couponCode || null,
           couponDiscount,
-          ...(isRoundTrip ? {
-            onwardFlightId: flight.id,
-            returnFlightId: returnFlight.id,
-            onwardFare,
-            returnFare,
-          } : {}),
         },
       })
       dispatch(bookingSuccess({ bookingId }))
@@ -240,11 +279,13 @@ export default function FlightBookingPage() {
         navigate(ROUTES.BOOKING_CONFIRMATION, {
           state: {
             bookingId,
-            type:          'FLIGHT',
-            flight,
-            returnFlight:  isRoundTrip ? returnFlight : undefined,
+            type:         'FLIGHT',
+            isMultiCity,
+            mcSegments:   isMultiCity ? mcSegments : undefined,
+            flight:       !isMultiCity ? flight : undefined,
+            returnFlight: isRoundTrip ? returnFlight : undefined,
             isRoundTrip,
-            passengers:    passengerForms,
+            passengers:   passengerForms,
             contact,
             totalPrice,
             specialFare,
@@ -278,12 +319,15 @@ export default function FlightBookingPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Booking</h1>
-      {isRoundTrip && (
-        <p className="text-sm text-blue-600 font-medium mb-6 flex items-center gap-1.5">
-          <span className="inline-block w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">↔</span>
-          Round Trip · {flight.origin} ⇌ {flight.destination}
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Complete Your Booking</h1>
+      {isMultiCity && (
+        <p className="text-sm text-purple-600 font-medium mb-6 flex items-center gap-1.5">
+          <span className="inline-flex w-5 h-5 rounded-full bg-purple-600 text-white text-xs items-center justify-center font-bold">M</span>
+          Multi-City · {mcSegments.length} segments
         </p>
+      )}
+      {isRoundTrip && (
+        <p className="text-sm text-blue-600 font-medium mb-6">↔ Round Trip · {flight.origin} ⇌ {flight.destination}</p>
       )}
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -311,9 +355,7 @@ export default function FlightBookingPage() {
               <div>
                 <p className="font-semibold text-blue-800 text-sm">
                   {fareInfo.label} Fare Applied
-                  {specialDiscount > 0 && (
-                    <span className="ml-2 text-green-600">— saving ₹{specialDiscount.toLocaleString('en-IN')}</span>
-                  )}
+                  {specialDiscount > 0 && <span className="ml-2 text-green-600">— saving ₹{specialDiscount.toLocaleString('en-IN')}</span>}
                 </p>
                 {fareInfo.note && <p className="text-xs text-blue-600 mt-0.5">📌 {fareInfo.note}</p>}
               </div>
@@ -329,20 +371,17 @@ export default function FlightBookingPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-2">
                       <Input label="Full Name (as on ID)" value={p.name}
-                        onChange={e => updatePassenger(i, 'name', e.target.value)}
-                        placeholder="John Doe" />
+                        onChange={e => updatePassenger(i, 'name', e.target.value)} placeholder="John Doe" />
                     </div>
                     <Input label="Age" type="number" min="1" max="120" value={p.age}
-                      onChange={e => updatePassenger(i, 'age', e.target.value)}
-                      placeholder="25" />
+                      onChange={e => updatePassenger(i, 'age', e.target.value)} placeholder="25" />
                     <div className="sm:col-span-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                       <div className="flex gap-4">
                         {['MALE', 'FEMALE', 'OTHER'].map(g => (
                           <label key={g} className="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name={`gender-${i}`} value={g}
-                              checked={p.gender === g} onChange={() => updatePassenger(i, 'gender', g)}
-                              className="text-blue-600" />
+                              checked={p.gender === g} onChange={() => updatePassenger(i, 'gender', g)} className="text-blue-600" />
                             <span className="text-sm text-gray-700 capitalize">{g.toLowerCase()}</span>
                           </label>
                         ))}
@@ -363,18 +402,12 @@ export default function FlightBookingPage() {
               <h2 className="font-semibold text-gray-900 mb-2">Contact Information</h2>
               <p className="text-sm text-gray-500 mb-4">Booking confirmation will be sent to this email.</p>
               <Input label="Email Address" type="email" value={contact.email}
-                onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
-                placeholder="you@example.com" />
+                onChange={e => setContact(c => ({ ...c, email: e.target.value }))} placeholder="you@example.com" />
               <Input label="Mobile Number" type="tel" value={contact.phone}
-                onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
-                placeholder="+91 98765 43210" />
+                onChange={e => setContact(c => ({ ...c, phone: e.target.value }))} placeholder="+91 98765 43210" />
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" onClick={() => setStep(0)}>Back</Button>
-                <Button
-                  disabled={!step2Valid() || creatingBooking}
-                  loading={creatingBooking}
-                  onClick={handleNavigateToStep2}
-                >
+                <Button disabled={!step2Valid() || creatingBooking} loading={creatingBooking} onClick={handleNavigateToStep2}>
                   {creatingBooking ? 'Saving booking…' : 'Review & Pay'}
                 </Button>
               </div>
@@ -384,7 +417,6 @@ export default function FlightBookingPage() {
           {/* Step 2: Review + Pay */}
           {step === 2 && (
             <div className="space-y-6">
-              {/* Summary */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="font-semibold text-gray-900 mb-4">Booking Summary</h2>
                 <div className="space-y-2 text-sm text-gray-700">
@@ -393,7 +425,7 @@ export default function FlightBookingPage() {
                 </div>
               </div>
 
-              {/* Coupon code */}
+              {/* Coupon */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="font-semibold text-gray-900 mb-3">Promo / Coupon Code</h2>
                 {isSpecialFareActive ? (
@@ -416,38 +448,31 @@ export default function FlightBookingPage() {
                         placeholder="Enter coupon code"
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                         onKeyDown={e => e.key === 'Enter' && applyCoupon()} />
-                      <Button size="sm" onClick={applyCoupon} loading={couponLoading} disabled={!couponInput.trim()}>
-                        Apply
-                      </Button>
+                      <Button size="sm" onClick={applyCoupon} loading={couponLoading} disabled={!couponInput.trim()}>Apply</Button>
                     </div>
                     {couponError && <p className="text-xs text-red-500">{couponError}</p>}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {['QUICK20', 'GOIBIBO10', 'FLAT500'].map(c => (
                         <button key={c} type="button" onClick={() => setCouponInput(c)}
-                          className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1 rounded-full hover:bg-blue-100">
-                          {c}
-                        </button>
+                          className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1 rounded-full hover:bg-blue-100">{c}</button>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Mock payment */}
+              {/* Payment */}
               <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900">Payment Details</h2>
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
-                  Demo mode — enter any card details. Use CVV <strong>000</strong> to simulate a failed payment and test the Pending booking flow.
+                  Demo mode — enter any card details. Use CVV <strong>000</strong> to simulate a failed payment.
                 </p>
                 <Input label="Card Number" value={cardNumber}
-                  onChange={e => setCardNumber(e.target.value.replace(/\D/g,'').slice(0,16))}
-                  placeholder="4111 1111 1111 1111" />
+                  onChange={e => setCardNumber(e.target.value.replace(/\D/g,'').slice(0,16))} placeholder="4111 1111 1111 1111" />
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Expiry (MM/YY)" value={cardExpiry}
-                    onChange={e => setCardExpiry(e.target.value)} placeholder="12/28" />
+                  <Input label="Expiry (MM/YY)" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} placeholder="12/28" />
                   <Input label="CVV" value={cardCVV}
-                    onChange={e => setCardCVV(e.target.value.replace(/\D/g,'').slice(0,3))}
-                    placeholder="123" />
+                    onChange={e => setCardCVV(e.target.value.replace(/\D/g,'').slice(0,3))} placeholder="123" />
                 </div>
               </div>
 
@@ -456,7 +481,7 @@ export default function FlightBookingPage() {
                   <p className="font-medium">{error}</p>
                   {pendingBookingId && (
                     <p className="mt-1 text-xs text-red-500">
-                      Booking ID <span className="font-mono">{pendingBookingId}</span> is saved as <strong>Pending</strong>. Fix your card details and retry, or find it in My Bookings.
+                      Booking ID <span className="font-mono">{pendingBookingId}</span> saved as <strong>Pending</strong>. Retry from My Bookings.
                     </p>
                   )}
                 </div>
@@ -479,23 +504,36 @@ export default function FlightBookingPage() {
           )}
         </div>
 
-        {/* Right: Flight summary + price breakdown */}
+        {/* Right: Flight summary + price */}
         <div className="lg:w-80 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-4 space-y-5">
-            <h3 className="font-semibold text-gray-900">{isRoundTrip ? 'Flight Details' : 'Flight Details'}</h3>
+            <h3 className="font-semibold text-gray-900">
+              {isMultiCity ? `Multi-City · ${mcSegments.length} Segments` : isRoundTrip ? 'Round Trip' : 'Flight Details'}
+            </h3>
 
-            {/* Onward segment */}
-            <FlightSegment flight={flight} label={isRoundTrip ? 'Onward' : undefined} />
+            {/* Multi-city segments */}
+            {isMultiCity && mcSegments.map((seg, i) => (
+              <div key={i}>
+                {i > 0 && <div className="border-t border-dashed border-gray-200" />}
+                <div className="pt-2">
+                  <FlightSegment flight={seg.flight} label={`Segment ${seg.order}: ${seg.origin} → ${seg.destination}`} />
+                </div>
+              </div>
+            ))}
 
-            {/* Return segment */}
-            {isRoundTrip && returnFlight && (
+            {/* One-way / round-trip */}
+            {!isMultiCity && flight && (
               <>
-                <div className="border-t border-dashed border-gray-200" />
-                <FlightSegment flight={returnFlight} label="Return" />
+                <FlightSegment flight={flight} label={isRoundTrip ? 'Onward' : undefined} />
+                {isRoundTrip && returnFlight && (
+                  <>
+                    <div className="border-t border-dashed border-gray-200" />
+                    <FlightSegment flight={returnFlight} label="Return" />
+                  </>
+                )}
               </>
             )}
 
-            {/* Special fare badge */}
             {isSpecialFareActive && (
               <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
                 <span className="text-sm">{fareInfo.icon}</span>
@@ -504,23 +542,31 @@ export default function FlightBookingPage() {
             )}
 
             <div className="border-t border-gray-100 pt-4 space-y-1.5">
-              {isRoundTrip ? (
+              {isMultiCity ? (
+                mcSegments.map((seg, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-gray-500">S{i + 1}: {seg.origin}→{seg.destination} ×{passengers}</span>
+                    <span>₹{(seg.fare * passengers).toLocaleString('en-IN')}</span>
+                  </div>
+                ))
+              ) : isRoundTrip ? (
                 <>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Onward fare × {passengers}</span>
-                    <span>₹{onwardFare.toLocaleString('en-IN')}</span>
+                    <span className="text-gray-500">Onward ×{passengers}</span>
+                    <span>₹{(Number(flight.price) * passengers).toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Return fare × {passengers}</span>
-                    <span>₹{returnFare.toLocaleString('en-IN')}</span>
+                    <span className="text-gray-500">Return ×{passengers}</span>
+                    <span>₹{(Number(returnFlight.price) * passengers).toLocaleString('en-IN')}</span>
                   </div>
                 </>
               ) : (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Base fare × {passengers}</span>
+                  <span className="text-gray-500">Base fare ×{passengers}</span>
                   <span>₹{baseFare.toLocaleString('en-IN')}</span>
                 </div>
               )}
+
               {specialDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>{fareInfo.icon} {fareInfo.label} discount</span>
