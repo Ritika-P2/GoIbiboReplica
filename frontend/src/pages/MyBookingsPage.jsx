@@ -59,31 +59,48 @@ function isPastBooking(b) {
   return jd ? jd < new Date() : false
 }
 
+function FlightSegmentRow({ flight, label }) {
+  return (
+    <div className="flex items-center gap-3">
+      {label && (
+        <span className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${label === 'Onward' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+          {label}
+        </span>
+      )}
+      <div className="text-center shrink-0">
+        <p className="text-base font-bold text-gray-900">{fmtTime(flight.departureTime)}</p>
+        <p className="text-xs font-semibold text-gray-700">{flight.origin}</p>
+      </div>
+      <div className="flex-1 text-center px-2">
+        <p className="text-xs text-gray-400">{flight.airline} · {flight.flightNumber}</p>
+        <div className="relative flex items-center my-1">
+          <div className="flex-1 h-px bg-gray-300" />
+          <span className="mx-1 text-sm">✈️</span>
+          <div className="flex-1 h-px bg-gray-300" />
+        </div>
+        <p className="text-xs text-gray-400">{flight.cabinClass}</p>
+      </div>
+      <div className="text-center shrink-0">
+        <p className="text-base font-bold text-gray-900">{fmtTime(flight.arrivalTime)}</p>
+        <p className="text-xs font-semibold text-gray-700">{flight.destination}</p>
+      </div>
+      <div className="ml-3 text-right shrink-0">
+        <p className="text-xs text-gray-400">Date</p>
+        <p className="text-xs font-medium text-gray-700">{fmtDate(flight.departureTime)}</p>
+      </div>
+    </div>
+  )
+}
+
 function BookingDetails({ b }) {
   if (b.type === 'FLIGHT' && b.flight) {
+    const isRoundTrip = !!b.returnFlight
     return (
-      <div className="flex items-center gap-3 mt-2">
-        <div className="text-center">
-          <p className="text-lg font-bold text-gray-900">{fmtTime(b.flight.departureTime)}</p>
-          <p className="text-sm font-semibold text-gray-700">{b.flight.origin}</p>
-        </div>
-        <div className="flex-1 text-center px-2">
-          <p className="text-xs text-gray-400">{b.flight.airline} · {b.flight.flightNumber}</p>
-          <div className="relative flex items-center my-1">
-            <div className="flex-1 h-px bg-gray-300" />
-            <span className="mx-1 text-sm">✈️</span>
-            <div className="flex-1 h-px bg-gray-300" />
-          </div>
-          <p className="text-xs text-gray-400">{b.flight.cabinClass}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-lg font-bold text-gray-900">{fmtTime(b.flight.arrivalTime)}</p>
-          <p className="text-sm font-semibold text-gray-700">{b.flight.destination}</p>
-        </div>
-        <div className="ml-4 text-right">
-          <p className="text-xs text-gray-400">Date</p>
-          <p className="text-sm font-medium text-gray-700">{fmtDate(b.flight.departureTime)}</p>
-        </div>
+      <div className="mt-2 space-y-2">
+        <FlightSegmentRow flight={b.flight} label={isRoundTrip ? 'Onward' : undefined} />
+        {isRoundTrip && b.returnFlight && (
+          <FlightSegmentRow flight={b.returnFlight} label="Return" />
+        )}
       </div>
     )
   }
@@ -352,7 +369,9 @@ export default function MyBookingsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-gray-900 text-base">
                             {b.type === 'FLIGHT' && b.flight
-                              ? `${b.flight.origin} → ${b.flight.destination}`
+                              ? b.returnFlight
+                                ? `${b.flight.origin} ⇌ ${b.flight.destination}`
+                                : `${b.flight.origin} → ${b.flight.destination}`
                               : b.type === 'TRAIN' && b.train
                               ? `${b.train.origin} → ${b.train.destination}`
                               : b.type === 'BUS' && b.bus
@@ -458,7 +477,9 @@ export default function MyBookingsPage() {
                 <h3 className="font-bold text-gray-900 text-lg">Complete Payment</h3>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {retryModal.flight
-                    ? `${retryModal.flight.origin} → ${retryModal.flight.destination}`
+                    ? retryModal.returnFlight
+                      ? `${retryModal.flight.origin} ⇌ ${retryModal.flight.destination} (Round Trip)`
+                      : `${retryModal.flight.origin} → ${retryModal.flight.destination}`
                     : 'Flight Booking'}
                 </p>
               </div>

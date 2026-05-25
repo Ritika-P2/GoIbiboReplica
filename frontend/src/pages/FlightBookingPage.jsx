@@ -33,6 +33,43 @@ function fmt(dt) {
 function fmtDur(mins) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
+function fmtDate(dt) {
+  return new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function FlightSegment({ flight, label }) {
+  return (
+    <div>
+      {label && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{label}</p>}
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs shrink-0">
+          {flight.airline.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-gray-900 text-sm">{flight.airline}</p>
+          <p className="text-xs text-gray-400">{flight.flightNumber} · {CABINS[flight.cabinClass] || flight.cabinClass}</p>
+        </div>
+      </div>
+      <div className="flex justify-between items-center mt-2">
+        <div>
+          <p className="text-lg font-bold text-gray-900">{fmt(flight.departureTime)}</p>
+          <p className="text-sm text-gray-600">{flight.origin}</p>
+          <p className="text-xs text-gray-400">{fmtDate(flight.departureTime)}</p>
+        </div>
+        <div className="text-center text-xs text-gray-400 px-2">
+          <p>{fmtDur(flight.duration)}</p>
+          <div className="w-12 h-px bg-gray-300 my-1 mx-auto" />
+          <p>{flight.stops === 0 ? 'Non-stop' : `${flight.stops} stop`}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold text-gray-900">{fmt(flight.arrivalTime)}</p>
+          <p className="text-sm text-gray-600">{flight.destination}</p>
+          <p className="text-xs text-gray-400">{fmtDate(flight.arrivalTime)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function FlightBookingPage() {
   const location = useLocation()
@@ -40,11 +77,11 @@ export default function FlightBookingPage() {
   const dispatch = useDispatch()
   const { loading, error } = useSelector(s => s.booking)
 
-  const { flight, passengers = 1, cabin = 'ECONOMY', specialFare = 'REGULAR' } = location.state || {}
+  const { flight, returnFlight, returnDate, passengers = 1, cabin = 'ECONOMY', specialFare = 'REGULAR' } = location.state || {}
+  const isRoundTrip = !!returnFlight
 
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
-  // pendingBookingId is set when user reaches Step 2 (before payment)
   const [pendingBookingId, setPendingBookingId] = useState(null)
   const [creatingBooking, setCreatingBooking] = useState(false)
   const [passengerForms, setPassengerForms] = useState(
@@ -72,11 +109,14 @@ export default function FlightBookingPage() {
     )
   }
 
-  const baseFare = Number(flight.price) * Number(passengers)
-  const fareInfo = SPECIAL_FARES[specialFare] || SPECIAL_FARES.REGULAR
+  // Price calculation — includes both legs for round trips
+  const onwardFare      = Number(flight.price) * Number(passengers)
+  const returnFare      = isRoundTrip ? Number(returnFlight.price) * Number(passengers) : 0
+  const baseFare        = onwardFare + returnFare
+  const fareInfo        = SPECIAL_FARES[specialFare] || SPECIAL_FARES.REGULAR
   const specialDiscount = computeDiscount(specialFare, baseFare)
-  const totalDiscount = specialDiscount + couponDiscount
-  const totalPrice = Math.max(0, baseFare - totalDiscount)
+  const totalDiscount   = specialDiscount + couponDiscount
+  const totalPrice      = Math.max(0, baseFare - totalDiscount)
   const isSpecialFareActive = specialFare !== 'REGULAR'
 
   function updatePassenger(i, field, value) {
@@ -118,32 +158,40 @@ export default function FlightBookingPage() {
     setCouponInput('')
   }
 
-  // Called when user clicks "Review & Pay" (Step 1 → Step 2).
-  // Creates the PENDING booking immediately so it appears in My Bookings
-  // before the user has completed payment.
+  // Build the booking payload (shared between Step-2 creation and Pay fallback)
+  function buildBookingPayload(finalAmount) {
+    return {
+      type:           'FLIGHT',
+      flightId:       flight.id,
+      ...(isRoundTrip ? { returnFlightId: returnFlight.id } : {}),
+      passengers:     passengerForms,
+      contactInfo:    contact,
+      totalAmount:    finalAmount,
+      packageData: {
+        tripType:          isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
+        specialFare,
+        specialFareLabel:  fareInfo.label,
+        specialDiscount,
+        couponCode:        null,
+        couponDiscount:    0,
+        ...(isRoundTrip ? {
+          onwardFlightId:   flight.id,
+          returnFlightId:   returnFlight.id,
+          onwardFare,
+          returnFare,
+        } : {}),
+      },
+    }
+  }
+
   async function handleNavigateToStep2() {
     if (!pendingBookingId) {
       setCreatingBooking(true)
       try {
-        const res = await bookingService.create({
-          type:        'FLIGHT',
-          flightId:    flight.id,
-          passengers:  passengerForms,
-          contactInfo: contact,
-          // Use pre-coupon amount; confirmPayment will correct it with the final price
-          totalAmount: baseFare - specialDiscount,
-          packageData: {
-            specialFare,
-            specialFareLabel: fareInfo.label,
-            specialDiscount,
-            couponCode:    null,
-            couponDiscount: 0,
-          },
-        })
+        const res = await bookingService.create(buildBookingPayload(baseFare - specialDiscount))
         setPendingBookingId(res.data.booking?.id)
       } catch {
-        // Non-fatal: if creation fails, still let user reach Step 2;
-        // the booking will be created again when they click Pay
+        // Non-fatal: fallback in handleBook
       } finally {
         setCreatingBooking(false)
       }
@@ -156,27 +204,12 @@ export default function FlightBookingPage() {
     try {
       let bookingId = pendingBookingId
 
-      // Fallback: booking wasn't created at Step 2 entry (e.g. API was down)
       if (!bookingId) {
-        const res = await bookingService.create({
-          type:        'FLIGHT',
-          flightId:    flight.id,
-          passengers:  passengerForms,
-          contactInfo: contact,
-          totalAmount: totalPrice,
-          packageData: {
-            specialFare,
-            specialFareLabel: fareInfo.label,
-            specialDiscount,
-            couponCode:    couponCode || null,
-            couponDiscount,
-          },
-        })
+        const res = await bookingService.create(buildBookingPayload(totalPrice))
         bookingId = res.data.booking?.id
         setPendingBookingId(bookingId)
       }
 
-      // Simulate payment — CVV "000" triggers a declined payment
       if (cardCVV === '000') {
         dispatch(bookingFailure(
           'Payment declined by bank. Your booking is saved — retry payment from My Bookings.'
@@ -184,15 +217,21 @@ export default function FlightBookingPage() {
         return
       }
 
-      // Confirm payment: pass the FINAL amount (with coupon) so DB stays correct
       await bookingService.confirmPayment(bookingId, {
         totalAmount: totalPrice,
         packageData: {
+          tripType:         isRoundTrip ? 'ROUND_TRIP' : 'ONE_WAY',
           specialFare,
           specialFareLabel: fareInfo.label,
           specialDiscount,
-          couponCode:    couponCode || null,
+          couponCode:       couponCode || null,
           couponDiscount,
+          ...(isRoundTrip ? {
+            onwardFlightId: flight.id,
+            returnFlightId: returnFlight.id,
+            onwardFare,
+            returnFare,
+          } : {}),
         },
       })
       dispatch(bookingSuccess({ bookingId }))
@@ -200,9 +239,19 @@ export default function FlightBookingPage() {
       setTimeout(() => {
         navigate(ROUTES.BOOKING_CONFIRMATION, {
           state: {
-            bookingId, type: 'FLIGHT', flight, passengers: passengerForms, contact,
-            totalPrice, specialFare, specialDiscount, couponCode, couponDiscount,
-          }
+            bookingId,
+            type:          'FLIGHT',
+            flight,
+            returnFlight:  isRoundTrip ? returnFlight : undefined,
+            isRoundTrip,
+            passengers:    passengerForms,
+            contact,
+            totalPrice,
+            specialFare,
+            specialDiscount,
+            couponCode,
+            couponDiscount,
+          },
         })
       }, 2000)
     } catch (e) {
@@ -229,7 +278,13 @@ export default function FlightBookingPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Complete Your Booking</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Booking</h1>
+      {isRoundTrip && (
+        <p className="text-sm text-blue-600 font-medium mb-6 flex items-center gap-1.5">
+          <span className="inline-block w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">↔</span>
+          Round Trip · {flight.origin} ⇌ {flight.destination}
+        </p>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left: Steps */}
@@ -426,47 +481,46 @@ export default function FlightBookingPage() {
 
         {/* Right: Flight summary + price breakdown */}
         <div className="lg:w-80 shrink-0">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Flight Details</h3>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
-                {flight.airline.slice(0,2).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">{flight.airline}</p>
-                <p className="text-xs text-gray-400">{flight.flightNumber}</p>
-              </div>
-            </div>
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <p className="text-xl font-bold text-gray-900">{fmt(flight.departureTime)}</p>
-                <p className="text-sm text-gray-600">{flight.origin}</p>
-              </div>
-              <div className="text-center text-xs text-gray-400">
-                <p>{fmtDur(flight.duration)}</p>
-                <div className="w-16 h-px bg-gray-300 my-1 mx-auto" />
-                <p>{flight.stops === 0 ? 'Non-stop' : `${flight.stops} stop`}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-900">{fmt(flight.arrivalTime)}</p>
-                <p className="text-sm text-gray-600">{flight.destination}</p>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500 mb-4">{CABINS[flight.cabinClass] || flight.cabinClass}</div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-4 space-y-5">
+            <h3 className="font-semibold text-gray-900">{isRoundTrip ? 'Flight Details' : 'Flight Details'}</h3>
+
+            {/* Onward segment */}
+            <FlightSegment flight={flight} label={isRoundTrip ? 'Onward' : undefined} />
+
+            {/* Return segment */}
+            {isRoundTrip && returnFlight && (
+              <>
+                <div className="border-t border-dashed border-gray-200" />
+                <FlightSegment flight={returnFlight} label="Return" />
+              </>
+            )}
 
             {/* Special fare badge */}
             {isSpecialFareActive && (
-              <div className="mb-3 flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
                 <span className="text-sm">{fareInfo.icon}</span>
                 <span className="text-xs font-semibold text-blue-700">{fareInfo.label} Fare</span>
               </div>
             )}
 
             <div className="border-t border-gray-100 pt-4 space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Base fare × {passengers}</span>
-                <span>₹{baseFare.toLocaleString('en-IN')}</span>
-              </div>
+              {isRoundTrip ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Onward fare × {passengers}</span>
+                    <span>₹{onwardFare.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Return fare × {passengers}</span>
+                    <span>₹{returnFare.toLocaleString('en-IN')}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Base fare × {passengers}</span>
+                  <span>₹{baseFare.toLocaleString('en-IN')}</span>
+                </div>
+              )}
               {specialDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>{fareInfo.icon} {fareInfo.label} discount</span>
