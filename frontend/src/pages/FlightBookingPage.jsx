@@ -169,7 +169,8 @@ export default function FlightBookingPage() {
       return true
     })
   }
-  function step2Valid() { return contact.email.includes('@') && contact.phone.length >= 10 }
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
+  function step2Valid() { return emailValid && contact.phone.length >= 10 }
 
   async function applyCoupon() {
     if (!couponInput.trim()) return
@@ -427,7 +428,8 @@ export default function FlightBookingPage() {
               <h2 className="font-semibold text-gray-900 mb-2">Contact Information</h2>
               <p className="text-sm text-gray-500 mb-4">Booking confirmation will be sent to this email.</p>
               <Input label="Email Address" type="email" value={contact.email}
-                onChange={e => setContact(c => ({ ...c, email: e.target.value }))} placeholder="you@example.com" />
+                onChange={e => setContact(c => ({ ...c, email: e.target.value }))} placeholder="you@example.com"
+                error={contact.email && !emailValid ? 'Enter a valid email address (e.g. user@example.com)' : ''} />
               <Input label="Mobile Number" type="tel" value={contact.phone}
                 onChange={e => setContact(c => ({ ...c, phone: e.target.value }))} placeholder="+91 98765 43210" />
               <div className="flex gap-3 pt-2">

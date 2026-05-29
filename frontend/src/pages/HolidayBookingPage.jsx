@@ -120,8 +120,9 @@ export default function HolidayBookingPage() {
     const errors = getTravellerErrors()
     return errors.every(e => Object.keys(e).length === 0)
   }
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
   function step2Valid() {
-    return contact.email.includes('@') && contact.phone.length >= 10
+    return emailValid && contact.phone.length >= 10
   }
 
   async function applyCoupon() {
@@ -344,7 +345,8 @@ export default function HolidayBookingPage() {
               <p className="text-sm text-gray-500">Booking confirmation and itinerary will be sent to this email.</p>
               <Input label="Email Address" type="email" value={contact.email}
                 onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
-                placeholder="you@example.com" />
+                placeholder="you@example.com"
+                error={contact.email && !emailValid ? 'Enter a valid email address (e.g. user@example.com)' : ''} />
               <Input label="Mobile Number" type="tel" value={contact.phone}
                 onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
                 placeholder="+91 98765 43210" />

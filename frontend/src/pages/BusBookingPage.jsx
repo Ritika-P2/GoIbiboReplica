@@ -76,7 +76,8 @@ export default function BusBookingPage() {
   }
 
   const step1Valid = passengers.every(p => p.name.trim() && p.age && Number(p.age) > 0 && Number(p.age) <= 100)
-  const step2Valid = contact.email.includes('@') && contact.phone.length >= 10
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
+  const step2Valid = emailValid && contact.phone.length >= 10
 
   async function handleBook() {
     dispatch(bookingStart())
@@ -237,7 +238,8 @@ export default function BusBookingPage() {
 
                 <Input label="Email Address" type="email" value={contact.email}
                   onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
-                  placeholder="you@example.com" />
+                  placeholder="you@example.com"
+                  error={contact.email && !emailValid ? 'Enter a valid email address (e.g. user@example.com)' : ''} />
                 <Input label="Mobile Number" type="tel" value={contact.phone}
                   onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
                   placeholder="+91 98765 43210" />
