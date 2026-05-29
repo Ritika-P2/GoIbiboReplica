@@ -75,7 +75,7 @@ export default function BusBookingPage() {
     if (passengers.length > 1) setPassengers(prev => prev.filter((_, idx) => idx !== i))
   }
 
-  const step1Valid = passengers.every(p => p.name.trim() && p.age && Number(p.age) > 0)
+  const step1Valid = passengers.every(p => p.name.trim() && p.age && Number(p.age) > 0 && Number(p.age) <= 100)
   const step2Valid = contact.email.includes('@') && contact.phone.length >= 10
 
   async function handleBook() {
@@ -188,9 +188,14 @@ export default function BusBookingPage() {
                           onChange={e => updatePassenger(i, 'name', e.target.value)}
                           placeholder="John Doe" />
                       </div>
-                      <Input label="Age" type="number" min="1" max="120" value={p.age}
-                        onChange={e => updatePassenger(i, 'age', e.target.value)}
-                        placeholder="25" />
+                      <div>
+                        <Input label="Age" type="number" min="1" max="100" value={p.age}
+                          onChange={e => updatePassenger(i, 'age', e.target.value)}
+                          placeholder="25" />
+                        {p.age && Number(p.age) > 100 && (
+                          <p className="text-xs text-red-500 mt-1">Age cannot be more than 100 years.</p>
+                        )}
+                      </div>
                       <div className="sm:col-span-3">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                         <div className="flex gap-6">
