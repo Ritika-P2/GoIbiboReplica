@@ -33,10 +33,11 @@ function RatingBadge({ rating }) {
 }
 
 export default function HotelCard({ hotel, searchParams }) {
-  const navigate  = useNavigate()
+  const navigate   = useNavigate()
   const lowestRoom = hotel.rooms?.[0]
-  const gradient  = CITY_GRADIENTS[hotel.city] || 'from-gray-100 to-gray-200'
-  const cityIcon  = CITY_ICONS[hotel.city] || '🏨'
+  const gradient   = CITY_GRADIENTS[hotel.city] || 'from-gray-100 to-gray-200'
+  const cityIcon   = CITY_ICONS[hotel.city] || '🏨'
+  const imgSrc     = hotel.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(hotel.name)}/400/300`
 
   function handleView() {
     const qs = new URLSearchParams({
@@ -53,10 +54,21 @@ export default function HotelCard({ hotel, searchParams }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all overflow-hidden">
       <div className="flex flex-col sm:flex-row">
-        {/* Image / gradient placeholder */}
-        <div className={`sm:w-52 h-44 sm:h-auto bg-gradient-to-br ${gradient} flex flex-col items-center justify-center shrink-0 relative`}>
-          <span className="text-6xl">{cityIcon}</span>
-          <span className="text-xs font-semibold text-gray-500 mt-2">{hotel.city}</span>
+        {/* Hotel image */}
+        <div className="sm:w-52 h-44 sm:h-auto shrink-0 relative overflow-hidden">
+          <img
+            src={imgSrc}
+            alt={hotel.name}
+            className="w-full h-full object-cover"
+            onError={e => {
+              e.currentTarget.style.display = 'none'
+              e.currentTarget.nextElementSibling.style.display = 'flex'
+            }}
+          />
+          <div className={`hidden w-full h-full bg-gradient-to-br ${gradient} flex-col items-center justify-center`}>
+            <span className="text-6xl">{cityIcon}</span>
+            <span className="text-xs font-semibold text-gray-500 mt-2">{hotel.city}</span>
+          </div>
           {hotel.starRating >= 5 && (
             <span className="absolute top-2 left-2 text-[10px] bg-yellow-400 text-yellow-900 font-bold px-2 py-0.5 rounded-full">
               Luxury
