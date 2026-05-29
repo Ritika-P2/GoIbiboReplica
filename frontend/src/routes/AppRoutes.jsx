@@ -25,6 +25,7 @@ import BusBookingPage from '../pages/BusBookingPage'
 import CabsPage from '../pages/CabsPage'
 import HolidaysPage from '../pages/HolidaysPage'
 import HolidayResultsPage from '../pages/HolidayResultsPage'
+import HolidayDetailPage from '../pages/HolidayDetailPage'
 import HolidayBookingPage from '../pages/HolidayBookingPage'
 import BookingConfirmationPage from '../pages/BookingConfirmationPage'
 import MyBookingsPage from '../pages/MyBookingsPage'
@@ -85,6 +86,7 @@ export default function AppRoutes() {
         <Route path={ROUTES.CABS}               element={<CabsPage />} />
         <Route path={ROUTES.HOLIDAYS}           element={<HolidaysPage />} />
         <Route path={ROUTES.HOLIDAY_RESULTS}    element={<HolidayResultsPage />} />
+        <Route path={ROUTES.HOLIDAY_DETAIL}     element={<HolidayDetailPage />} />
         <Route path={ROUTES.HOLIDAY_BOOKING}    element={<ProtectedRoute><HolidayBookingPage /></ProtectedRoute>} />
         <Route path={ROUTES.ABOUT}              element={<AboutPage />} />
         <Route path={ROUTES.CAREERS}            element={<CareersPage />} />

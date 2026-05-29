@@ -36,6 +36,10 @@
     INITIATE: '/payments/initiate',
     VERIFY: '/payments/verify',
   },
+  HOLIDAYS: {
+    LIST:   '/holidays',
+    DETAIL: (id) => `/holidays/${id}`,
+  },
   COUPONS: {
     VALIDATE: '/coupons/validate',
   },

@@ -90,7 +90,7 @@ function matchesDuration(duration, filter) {
 
 // ─── PackageCard ──────────────────────────────────────────────────────────────
 
-function PackageCard({ pkg, onBook }) {
+function PackageCard({ pkg, onBook, onDetail }) {
   const discount = pkg.originalPrice
     ? Math.round((1 - Number(pkg.price) / Number(pkg.originalPrice)) * 100) : 0
   const img        = pkg.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(pkg.title)}/800/500`
@@ -202,7 +202,7 @@ function PackageCard({ pkg, onBook }) {
                 className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-2.5 px-5 rounded-xl transition-colors whitespace-nowrap">
                 Book Now
               </button>
-              <button className="border-2 border-orange-500 text-orange-500 hover:bg-orange-50 text-sm font-bold py-2 px-5 rounded-xl transition-colors whitespace-nowrap">
+              <button onClick={() => onDetail(pkg)} className="border-2 border-orange-500 text-orange-500 hover:bg-orange-50 text-sm font-bold py-2 px-5 rounded-xl transition-colors whitespace-nowrap">
                 View Details
               </button>
             </div>
@@ -478,7 +478,8 @@ export default function HolidayResultsPage() {
               <div className="space-y-4">
                 {filtered.map(pkg => (
                   <PackageCard key={pkg.id} pkg={pkg}
-                    onBook={p => navigate(ROUTES.HOLIDAY_BOOKING, { state: { pkg: p } })} />
+                    onBook={p => navigate(ROUTES.HOLIDAY_BOOKING, { state: { pkg: p } })}
+                    onDetail={p => navigate(`/holidays/${p.id}`, { state: { pkg: p } })} />
                 ))}
               </div>
             )}

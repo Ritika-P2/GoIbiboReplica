@@ -266,7 +266,7 @@ function FiltersDropdown({ budget, setBudget, durationFilter, setDurFilter, them
 
 // ─── PackageCard ──────────────────────────────────────────────────────────────
 
-function PackageCard({ pkg, onBook }) {
+function PackageCard({ pkg, onBook, onDetail }) {
   const discount = pkg.originalPrice
     ? Math.round((1 - Number(pkg.price) / Number(pkg.originalPrice)) * 100) : 0
   const img = pkg.images?.[0] || null
@@ -328,7 +328,7 @@ function PackageCard({ pkg, onBook }) {
           </div>
           <div className="flex gap-2">
             <button onClick={() => onBook(pkg)} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-2 rounded-xl transition-colors">Book Now</button>
-            <button className="flex-1 border-2 border-orange-500 text-orange-500 hover:bg-orange-50 text-sm font-bold py-2 rounded-xl transition-colors">View Details</button>
+            <button onClick={() => onDetail(pkg)} className="flex-1 border-2 border-orange-500 text-orange-500 hover:bg-orange-50 text-sm font-bold py-2 rounded-xl transition-colors">View Details</button>
           </div>
         </div>
       </div>
@@ -696,7 +696,8 @@ export default function HolidaysPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {displayPackages.map(pkg => (
                 <PackageCard key={pkg.id} pkg={pkg}
-                  onBook={p => navigate(ROUTES.HOLIDAY_BOOKING, { state: { pkg: p } })} />
+                  onBook={p => navigate(ROUTES.HOLIDAY_BOOKING, { state: { pkg: p } })}
+                  onDetail={p => navigate(`/holidays/${p.id}`, { state: { pkg: p } })} />
               ))}
             </div>
           )}
