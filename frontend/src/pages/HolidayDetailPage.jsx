@@ -4,95 +4,219 @@ import { holidayService } from '../services/holidayService'
 import { ROUTES } from '../constants/routes'
 import Loader from '../components/common/Loader'
 
-// Maps city/destination → Unsplash search keywords so gallery shows
-// actual tourist photos of that place instead of generic images.
-const DESTINATION_KEYWORDS = {
-  // Domestic — beaches & coastal
-  Goa:          'goa,beach,india',
-  Andaman:      'andaman,islands,beach',
-  Kochi:        'kerala,backwaters,houseboat',
-  Lakshadweep:  'lakshadweep,coral,beach',
-
-  // Domestic — hill stations & mountains
-  Manali:       'manali,snow,himachal',
-  Shimla:       'shimla,himachal,mountains',
-  Darjeeling:   'darjeeling,tea,himalaya',
-  Ladakh:       'ladakh,monastery,mountains',
-  Nainital:     'nainital,lake,uttarakhand',
-  Rishikesh:    'rishikesh,ganges,yoga',
-  Mussoorie:    'mussoorie,uttarakhand,hills',
-  Ooty:         'ooty,nilgiris,tea',
-  Coorg:        'coorg,coffee,karnataka',
-  Munnar:       'munnar,kerala,tea',
-  Meghalaya:    'meghalaya,cherrapunji,waterfalls',
-
-  // Domestic — heritage & culture
-  Rajasthan:    'rajasthan,palace,desert',
-  Jaipur:       'jaipur,amber-fort,rajasthan',
-  Jodhpur:      'jodhpur,blue-city,rajasthan',
-  Udaipur:      'udaipur,lake,palace',
-  Jaisalmer:    'jaisalmer,desert,rajasthan',
-  Varanasi:     'varanasi,ghats,ganges',
-  Agra:         'agra,taj-mahal,india',
-  Amritsar:     'amritsar,golden-temple,india',
-  Khajuraho:    'khajuraho,temple,india',
-
-  // Domestic — nature & wildlife
-  Kerala:       'kerala,backwaters,india',
-  'Jim Corbett': 'jim-corbett,tiger,wildlife',
-  Ranthambore:  'ranthambore,tiger,safari',
-  Kaziranga:    'kaziranga,rhino,assam',
-
-  // Domestic — metro cities
-  Mumbai:       'mumbai,gateway,india',
-  Delhi:        'delhi,india-gate,monument',
-  Bangalore:    'bangalore,garden-city,india',
-  Chennai:      'chennai,marina,tamil-nadu',
-  Hyderabad:    'hyderabad,charminar,india',
-  Kolkata:      'kolkata,howrah-bridge,india',
-  Chandigarh:   'chandigarh,punjab,india',
-  Mysore:       'mysore,palace,karnataka',
-  Pondicherry:  'pondicherry,french,india',
-
+// Curated Unsplash photo IDs per destination.
+// URLs use the direct CDN (images.unsplash.com/photo-{ID}) which works
+// without an API key — unlike source.unsplash.com which is deprecated.
+const DESTINATION_PHOTOS = {
+  Goa: [
+    '1512343879784-a960bf40e7f2', // aerial Goa beach
+    '1507525428034-b723cf961d3e', // tropical sandy beach
+    '1559494007-9f5847c49d94', // palm-lined shore
+    '1519046904884-53103b34b206', // beach from above
+    '1503756234508-e180b02012f6', // turquoise sea
+    '1596436873906-f8e91aec7961', // beach sunset
+  ],
+  Kerala: [
+    '1602216056096-3b40cc0c9944', // Kerala backwaters houseboat
+    '1506905925346-21bda4d32df4', // lush green landscape
+    '1501854140801-50d01698950b', // aerial green hillside
+    '1527631120902-378417754324', // river through jungle
+    '1544551763-46a013bb70d5', // clear tropical waters
+    '1464822759023-fed622ff2c3b', // misty mountain valley
+  ],
+  Manali: [
+    '1605649487212-47bdab064df7', // snow-covered Himalayan valley
+    '1506905925346-21bda4d32df4', // mountain peaks
+    '1464822759023-fed622ff2c3b', // mountain landscape with snow
+    '1476514525535-07fb3b4ae5f1', // mountain lake
+    '1519681393784-d120267933ba', // snowy mountains night
+    '1491555103944-7c647fd857e6', // alpine meadow
+  ],
+  Shimla: [
+    '1597069580476-e4e7b9e4e897', // Shimla hillside
+    '1506905925346-21bda4d32df4', // mountain ridge
+    '1476514525535-07fb3b4ae5f1', // mountain lake
+    '1464822759023-fed622ff2c3b', // scenic valley
+    '1519681393784-d120267933ba', // mountain night sky
+    '1491555103944-7c647fd857e6', // meadow hills
+  ],
+  Ladakh: [
+    '1605649487212-47bdab064df7', // high altitude barren mountains
+    '1519681393784-d120267933ba', // starry sky over mountains
+    '1476514525535-07fb3b4ae5f1', // mountain lake reflection
+    '1464822759023-fed622ff2c3b', // rugged mountain valley
+    '1506905925346-21bda4d32df4', // snow peaks
+    '1491555103944-7c647fd857e6', // alpine plateau
+  ],
+  Darjeeling: [
+    '1501854140801-50d01698950b', // green hillside aerial
+    '1464822759023-fed622ff2c3b', // misty mountains
+    '1506905925346-21bda4d32df4', // mountain scenery
+    '1527631120902-378417754324', // river through greenery
+    '1476514525535-07fb3b4ae5f1', // lake in hills
+    '1491555103944-7c647fd857e6', // rolling hills
+  ],
+  Rajasthan: [
+    '1477587458883-47145ed6979e', // Amber Fort Jaipur
+    '1493770348161-369560ae357d', // sand dunes camel
+    '1524492412937-b28074a5d7da', // palace/fort architecture
+    '1526080652727-5b77f74e9b31', // desert landscape
+    '1611262588024-d12430b98920', // ornate Indian architecture
+    '1585468274952-66591eb14165', // Rajasthan fort
+  ],
+  Jaipur: [
+    '1477587458883-47145ed6979e', // Amber Fort
+    '1524492412937-b28074a5d7da', // palace
+    '1611262588024-d12430b98920', // ornate architecture
+    '1585468274952-66591eb14165', // fort walls
+    '1493770348161-369560ae357d', // desert dunes
+    '1526080652727-5b77f74e9b31', // landscape
+  ],
+  Udaipur: [
+    '1524492412937-b28074a5d7da', // palace on lake
+    '1477587458883-47145ed6979e', // fort
+    '1476514525535-07fb3b4ae5f1', // lake reflection
+    '1611262588024-d12430b98920', // heritage architecture
+    '1585468274952-66591eb14165', // stone architecture
+    '1493770348161-369560ae357d', // scenic landscape
+  ],
+  Varanasi: [
+    '1561361058-c24cecae35ca', // Ganges ghats evening
+    '1593693397690-362cb9666fc2', // aarti ceremony
+    '1524492412937-b28074a5d7da', // temple architecture
+    '1611262588024-d12430b98920', // old city architecture
+    '1527631120902-378417754324', // river view
+    '1585468274952-66591eb14165', // stone steps
+  ],
+  Agra: [
+    '1548013146-72479768bada', // Taj Mahal
+    '1524492412937-b28074a5d7da', // Mughal architecture
+    '1477587458883-47145ed6979e', // fort
+    '1611262588024-d12430b98920', // heritage monument
+    '1585468274952-66591eb14165', // sandstone fort
+    '1476514525535-07fb3b4ae5f1', // reflecting pool
+  ],
+  Amritsar: [
+    '1611262588024-d12430b98920', // golden temple
+    '1524492412937-b28074a5d7da', // sacred architecture
+    '1585468274952-66591eb14165', // stone temple
+    '1477587458883-47145ed6979e', // heritage site
+    '1527631120902-378417754324', // sacred waters
+    '1493770348161-369560ae357d', // landscape
+  ],
+  Rishikesh: [
+    '1527631120902-378417754324', // river rapids
+    '1476514525535-07fb3b4ae5f1', // mountain river
+    '1501854140801-50d01698950b', // green valley aerial
+    '1464822759023-fed622ff2c3b', // hillside nature
+    '1506905925346-21bda4d32df4', // mountain view
+    '1491555103944-7c647fd857e6', // meadow yoga
+  ],
+  Andaman: [
+    '1544551763-46a013bb70d5', // clear tropical sea
+    '1507525428034-b723cf961d3e', // pristine white beach
+    '1519046904884-53103b34b206', // aerial island
+    '1559494007-9f5847c49d94', // coral reef waters
+    '1503756234508-e180b02012f6', // turquoise lagoon
+    '1596436873906-f8e91aec7961', // tropical sunset
+  ],
+  Coorg: [
+    '1501854140801-50d01698950b', // coffee plantation hills
+    '1464822759023-fed622ff2c3b', // misty green hills
+    '1506905925346-21bda4d32df4', // western ghats
+    '1527631120902-378417754324', // forest river
+    '1491555103944-7c647fd857e6', // green meadow
+    '1476514525535-07fb3b4ae5f1', // lake in forest
+  ],
+  Meghalaya: [
+    '1527631120902-378417754324', // waterfall / living root bridge
+    '1501854140801-50d01698950b', // green hills aerial
+    '1464822759023-fed622ff2c3b', // misty northeast landscape
+    '1476514525535-07fb3b4ae5f1', // mountain lake
+    '1491555103944-7c647fd857e6', // lush meadow
+    '1506905925346-21bda4d32df4', // mountain range
+  ],
+  'Jim Corbett': [
+    '1474511320723-9a56873867b5', // tiger wildlife
+    '1501854140801-50d01698950b', // jungle aerial
+    '1527631120902-378417754324', // forest river
+    '1464822759023-fed622ff2c3b', // dense forest
+    '1491555103944-7c647fd857e6', // grassland
+    '1476514525535-07fb3b4ae5f1', // forest lake
+  ],
   // International
-  Bali:         'bali,temple,indonesia',
-  Thailand:     'thailand,bangkok,temple',
-  Singapore:    'singapore,marina-bay,skyline',
-  Maldives:     'maldives,overwater-bungalow,beach',
-  Switzerland:  'switzerland,alps,scenic',
-  Dubai:        'dubai,burj-khalifa,skyline',
-  Paris:        'paris,eiffel-tower,france',
-  London:       'london,big-ben,thames',
-  Tokyo:        'tokyo,japan,cherry-blossom',
-  'New York':   'new-york,manhattan,skyline',
-  Rome:         'rome,colosseum,italy',
-  Barcelona:    'barcelona,sagrada-familia,spain',
-  Istanbul:     'istanbul,hagia-sophia,turkey',
-  Amsterdam:    'amsterdam,canal,netherlands',
-  Prague:       'prague,castle,czech',
-  Santorini:    'santorini,greece,white-blue',
-  'Sri Lanka':  'sri-lanka,temple,ceylon',
-  Nepal:        'nepal,everest,himalaya',
-  Vietnam:      'vietnam,halong-bay,asia',
-  Cambodia:     'cambodia,angkor-wat,temple',
-  Malaysia:     'malaysia,kuala-lumpur,tower',
-  Australia:    'australia,sydney,opera-house',
-  Mauritius:    'mauritius,beach,island',
+  Bali: [
+    '1537996008257-5e31e4d9e2f8', // Bali rice terraces
+    '1518548419970-58e3b4079ab2', // Bali temple
+    '1552465011-b4e21bf6e79a', // Bali beach
+    '1559494007-9f5847c49d94', // tropical waters
+    '1507525428034-b723cf961d3e', // beach
+    '1596436873906-f8e91aec7961', // tropical sunset
+  ],
+  Thailand: [
+    '1528360983277-13d401cdc186', // Thai temple
+    '1518548419970-58e3b4079ab2', // Buddhist temple
+    '1503756234508-e180b02012f6', // turquoise bay
+    '1507525428034-b723cf961d3e', // Thai beach
+    '1544551763-46a013bb70d5', // clear waters
+    '1527631120902-378417754324', // river/jungle
+  ],
+  Singapore: [
+    '1525625293133-d4ba63190030', // Marina Bay Sands
+    '1565967511849-76a60a516170', // Singapore skyline
+    '1508964942454-1a56651d54ac', // Gardens by the Bay
+    '1518998053901-5348d3961a04', // city lights
+    '1524492412937-b28074a5d7da', // architecture
+    '1519046904884-53103b34b206', // aerial city
+  ],
+  Maldives: [
+    '1544551763-46a013bb70d5', // overwater bungalow crystal water
+    '1507525428034-b723cf961d3e', // white sand beach
+    '1519046904884-53103b34b206', // aerial island
+    '1503756234508-e180b02012f6', // lagoon
+    '1559494007-9f5847c49d94', // coral reef
+    '1596436873906-f8e91aec7961', // sunset over ocean
+  ],
+  Switzerland: [
+    '1506905925346-21bda4d32df4', // Swiss Alps
+    '1476514525535-07fb3b4ae5f1', // alpine lake
+    '1464822759023-fed622ff2c3b', // mountain valley
+    '1519681393784-d120267933ba', // snowy peaks
+    '1491555103944-7c647fd857e6', // alpine meadow flowers
+    '1605649487212-47bdab064df7', // snow mountains
+  ],
+  Dubai: [
+    '1518998053901-5348d3961a04', // Dubai skyline night
+    '1565967511849-76a60a516170', // city lights
+    '1525625293133-d4ba63190030', // modern architecture
+    '1493770348161-369560ae357d', // desert dunes
+    '1526080652727-5b77f74e9b31', // desert landscape
+    '1508964942454-1a56651d54ac', // city building
+  ],
 }
 
-// Derive destination keywords from city name, falling back to a generic travel query
-function getDestinationKeywords(city) {
-  if (!city) return 'travel,tourism,destination'
-  // Try exact match first, then partial match
-  if (DESTINATION_KEYWORDS[city]) return DESTINATION_KEYWORDS[city]
-  const lower = city.toLowerCase()
-  const match = Object.keys(DESTINATION_KEYWORDS).find(k => lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower))
-  return match ? DESTINATION_KEYWORDS[match] : `${city.toLowerCase().replace(/\s+/g, '-')},travel,tourism`
-}
-
-// Unsplash Source: sig param makes each slot consistent across reloads
-function galleryUrl(keywords, slot, w = 600, h = 400) {
-  return `https://source.unsplash.com/${w}x${h}/?${encodeURIComponent(keywords)}&sig=${slot}`
+// Returns 6 gallery photo URLs for a destination using direct Unsplash CDN IDs.
+// Falls back to picsum (seeded by city+index) for unmapped cities.
+function getGalleryImages(city) {
+  const photos = DESTINATION_PHOTOS[city]
+  if (photos) {
+    return photos.map(id =>
+      `https://images.unsplash.com/photo-${id}?w=600&h=400&fit=crop&q=80&auto=format`
+    )
+  }
+  // Fallback: try partial match
+  const match = Object.keys(DESTINATION_PHOTOS).find(k =>
+    city?.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(city?.toLowerCase())
+  )
+  if (match) {
+    return DESTINATION_PHOTOS[match].map(id =>
+      `https://images.unsplash.com/photo-${id}?w=600&h=400&fit=crop&q=80&auto=format`
+    )
+  }
+  // Last resort: picsum seeded by city name
+  return Array.from({ length: 6 }, (_, i) =>
+    `https://picsum.photos/seed/${encodeURIComponent(city || 'travel')}-${i + 1}/600/400`
+  )
 }
 
 const TAG_COLORS = {
@@ -160,10 +284,7 @@ export default function HolidayDetailPage() {
   const reviews       = Number(pkg.reviewCount || 1200)
   const heroImg       = (!imgError && (pkg.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(pkg.title)}/1200/500`))
 
-  const destKeywords = getDestinationKeywords(pkg.city)
-  const galleryImages = Array.from({ length: 12 }, (_, i) =>
-    galleryUrl(destKeywords, i + 1)
-  )
+  const galleryImages = getGalleryImages(pkg.city)
 
   function handleBook() {
     navigate(ROUTES.HOLIDAY_BOOKING, { state: { pkg } })
