@@ -75,7 +75,7 @@ export default function HotelBookingPage() {
     setGuestForms(prev => prev.map((g, idx) => idx === i ? { ...g, [field]: value } : g))
   }
 
-  const step1Valid = guestForms.every(g => g.name.trim() && g.age && Number(g.age) > 0)
+  const step1Valid = guestForms.every(g => g.name.trim() && g.age && Number(g.age) > 0 && Number(g.age) <= 100)
   const step2Valid = contact.email.includes('@') && contact.phone.length >= 10
 
   function fmtDate(d) {
@@ -158,8 +158,11 @@ export default function HotelBookingPage() {
                         </Field>
                       </div>
                       <Field label="Age">
-                        <input className={inputClass} type="number" min="18" max="120" value={g.age}
+                        <input className={inputClass} type="number" min="18" max="100" value={g.age}
                           onChange={e => updateGuest(i, 'age', e.target.value)} placeholder="30" />
+                        {g.age && Number(g.age) > 100 && (
+                          <p className="text-xs text-red-500 mt-1">Age cannot be more than 100 years.</p>
+                        )}
                       </Field>
                       <div className="sm:col-span-3">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>

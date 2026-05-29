@@ -124,7 +124,7 @@ export default function TrainBookingPage() {
   }
 
   const step1Valid = passengers.every(p =>
-    p.name.trim() && p.age && Number(p.age) > 0 &&
+    p.name.trim() && p.age && Number(p.age) > 0 && Number(p.age) <= 100 &&
     (!isLadiesQuota || p.gender === 'FEMALE') &&
     (!isSeniorCitizenQuota || Number(p.age) >= 60)
   )
@@ -232,11 +232,14 @@ export default function TrainBookingPage() {
                           className={`${inputClass} ${isSeniorCitizenQuota && p.age && Number(p.age) < 60 ? 'border-red-400 focus:ring-red-400' : ''}`}
                           type="number"
                           min={isSeniorCitizenQuota ? '60' : '1'}
-                          max="120"
+                          max="100"
                           value={p.age}
                           onChange={e => updatePassenger(i, 'age', e.target.value)}
                           placeholder={isSeniorCitizenQuota ? '60+' : '25'} />
-                        {isSeniorCitizenQuota && p.age && Number(p.age) < 60 && (
+                        {p.age && Number(p.age) > 100 && (
+                          <p className="text-xs text-red-500 mt-1">Age cannot be more than 100 years.</p>
+                        )}
+                        {isSeniorCitizenQuota && p.age && Number(p.age) <= 100 && Number(p.age) < 60 && (
                           <p className="text-xs text-red-500 mt-1">Passenger must be 60 years or above for Senior Citizen quota.</p>
                         )}
                       </Field>

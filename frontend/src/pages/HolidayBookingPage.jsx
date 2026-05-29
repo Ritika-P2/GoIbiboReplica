@@ -104,6 +104,8 @@ export default function HolidayBookingPage() {
         errs.age = 'Enter a valid age.'
       } else if (i < adults && age < 12) {
         errs.age = 'Adults must be 12 years or older.'
+      } else if (i < adults && age > 100) {
+        errs.age = 'Age cannot be more than 100 years.'
       } else if (i >= adults && age > 18) {
         errs.age = 'Children must be 18 years or younger.'
       } else if (i >= adults && age < 2) {
@@ -294,7 +296,7 @@ export default function HolidayBookingPage() {
                       </div>
                       <div>
                         <Input label={i < adults ? 'Age (12+)' : 'Age (2–18)'} type="number"
-                          min={i < adults ? 12 : 2} max={i < adults ? 120 : 18}
+                          min={i < adults ? 12 : 2} max={i < adults ? 100 : 18}
                           value={t.age}
                           onChange={e => updateTraveller(i, 'age', e.target.value)}
                           placeholder={i < adults ? '25' : '10'}

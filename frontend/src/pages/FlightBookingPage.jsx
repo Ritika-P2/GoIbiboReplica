@@ -164,6 +164,7 @@ export default function FlightBookingPage() {
   function step1Valid() {
     return passengerForms.every(p => {
       if (!p.name.trim() || !p.age || Number(p.age) <= 0) return false
+      if (Number(p.age) > 100) return false
       if (specialFare === 'SENIOR_CITIZEN' && !isSeniorEligible(p.age)) return false
       return true
     })
@@ -390,9 +391,12 @@ export default function FlightBookingPage() {
                         onChange={e => updatePassenger(i, 'name', e.target.value)} placeholder="John Doe" />
                     </div>
                     <div>
-                      <Input label="Age" type="number" min="1" max="120" value={p.age}
+                      <Input label="Age" type="number" min="1" max="100" value={p.age}
                         onChange={e => updatePassenger(i, 'age', e.target.value)} placeholder="25" />
-                      {specialFare === 'SENIOR_CITIZEN' && p.age && !isSeniorEligible(p.age) && (
+                      {p.age && Number(p.age) > 100 && (
+                        <p className="text-xs text-red-500 mt-1">Age cannot be more than 100 years.</p>
+                      )}
+                      {specialFare === 'SENIOR_CITIZEN' && p.age && Number(p.age) <= 100 && !isSeniorEligible(p.age) && (
                         <p className="text-xs text-red-500 mt-1">Age must be 60 or above for Senior Citizen fare.</p>
                       )}
                     </div>
