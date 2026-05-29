@@ -120,9 +120,10 @@ export default function HolidayBookingPage() {
     const errors = getTravellerErrors()
     return errors.every(e => Object.keys(e).length === 0)
   }
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
+  const emailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(contact.email)
+  const phoneValid = /^[6-9]\d{9}$/.test(contact.phone)
   function step2Valid() {
-    return emailValid && contact.phone.length >= 10
+    return emailValid && phoneValid
   }
 
   async function applyCoupon() {
@@ -349,7 +350,8 @@ export default function HolidayBookingPage() {
                 error={contact.email && !emailValid ? 'Enter a valid email address (e.g. user@example.com)' : ''} />
               <Input label="Mobile Number" type="tel" value={contact.phone}
                 onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
-                placeholder="+91 98765 43210" />
+                placeholder="e.g. 9876543210"
+                error={contact.phone && !phoneValid ? 'Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9' : ''} />
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" onClick={() => setStep(0)}>Back</Button>
                 <Button disabled={!step2Valid()} onClick={() => setStep(2)}

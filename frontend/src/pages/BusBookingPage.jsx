@@ -76,8 +76,9 @@ export default function BusBookingPage() {
   }
 
   const step1Valid = passengers.every(p => p.name.trim() && p.age && Number(p.age) > 0 && Number(p.age) <= 100)
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
-  const step2Valid = emailValid && contact.phone.length >= 10
+  const emailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(contact.email)
+  const phoneValid = /^[6-9]\d{9}$/.test(contact.phone)
+  const step2Valid = emailValid && phoneValid
 
   async function handleBook() {
     dispatch(bookingStart())
@@ -242,7 +243,8 @@ export default function BusBookingPage() {
                   error={contact.email && !emailValid ? 'Enter a valid email address (e.g. user@example.com)' : ''} />
                 <Input label="Mobile Number" type="tel" value={contact.phone}
                   onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
-                  placeholder="+91 98765 43210" />
+                  placeholder="e.g. 9876543210"
+                  error={contact.phone && !phoneValid ? 'Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9' : ''} />
 
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => setStep(0)}
