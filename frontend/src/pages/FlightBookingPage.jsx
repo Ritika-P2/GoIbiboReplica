@@ -19,9 +19,15 @@ const SPECIAL_FARES = {
   DOCTOR_NURSE:   { label: 'Doctor & Nurses', icon: '🩺',  discount: { type: 'FLAT',    value: 600 }, note: 'Valid medical professional ID required' },
 }
 
-function computeDiscount(specialFare, baseTotal) {
+function isSeniorEligible(age) { return Number(age) >= 60 }
+
+function computeDiscount(specialFare, baseTotal, passengerAges = []) {
   const fare = SPECIAL_FARES[specialFare]
   if (!fare || !fare.discount) return 0
+  if (specialFare === 'SENIOR_CITIZEN') {
+    const allEligible = passengerAges.length > 0 && passengerAges.every(age => isSeniorEligible(age))
+    if (!allEligible) return 0
+  }
   if (fare.discount.type === 'PERCENT') return Math.round(baseTotal * fare.discount.value / 100)
   if (fare.discount.type === 'FLAT')    return Math.min(fare.discount.value, baseTotal)
   return 0
@@ -145,7 +151,8 @@ export default function FlightBookingPage() {
     baseFare = Number(flight.price) * Number(passengers)
   }
 
-  const specialDiscount = computeDiscount(specialFare, baseFare)
+  const passengerAges = passengerForms.map(p => p.age)
+  const specialDiscount = computeDiscount(specialFare, baseFare, passengerAges)
   const totalDiscount   = specialDiscount + couponDiscount
   const totalPrice      = Math.max(0, baseFare - totalDiscount)
   const isSpecialFareActive = specialFare !== 'REGULAR'
@@ -154,7 +161,13 @@ export default function FlightBookingPage() {
     setPassengerForms(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
   }
 
-  function step1Valid() { return passengerForms.every(p => p.name.trim() && p.age && Number(p.age) > 0) }
+  function step1Valid() {
+    return passengerForms.every(p => {
+      if (!p.name.trim() || !p.age || Number(p.age) <= 0) return false
+      if (specialFare === 'SENIOR_CITIZEN' && !isSeniorEligible(p.age)) return false
+      return true
+    })
+  }
   function step2Valid() { return contact.email.includes('@') && contact.phone.length >= 10 }
 
   async function applyCoupon() {
@@ -350,14 +363,17 @@ export default function FlightBookingPage() {
 
           {/* Special fare banner */}
           {isSpecialFareActive && (
-            <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className={`mb-6 flex items-start gap-3 rounded-xl p-4 border ${specialFare === 'SENIOR_CITIZEN' && passengerAges.some(a => a && !isSeniorEligible(a)) ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
               <span className="text-2xl">{fareInfo.icon}</span>
               <div>
-                <p className="font-semibold text-blue-800 text-sm">
+                <p className={`font-semibold text-sm ${specialFare === 'SENIOR_CITIZEN' && passengerAges.some(a => a && !isSeniorEligible(a)) ? 'text-amber-800' : 'text-blue-800'}`}>
                   {fareInfo.label} Fare Applied
                   {specialDiscount > 0 && <span className="ml-2 text-green-600">— saving ₹{specialDiscount.toLocaleString('en-IN')}</span>}
                 </p>
                 {fareInfo.note && <p className="text-xs text-blue-600 mt-0.5">📌 {fareInfo.note}</p>}
+                {specialFare === 'SENIOR_CITIZEN' && passengerAges.some(a => a && !isSeniorEligible(a)) && (
+                  <p className="text-xs text-amber-700 mt-1 font-medium">⚠️ Discount not applied — all passengers must be aged 60 or above.</p>
+                )}
               </div>
             </div>
           )}
@@ -373,8 +389,13 @@ export default function FlightBookingPage() {
                       <Input label="Full Name (as on ID)" value={p.name}
                         onChange={e => updatePassenger(i, 'name', e.target.value)} placeholder="John Doe" />
                     </div>
-                    <Input label="Age" type="number" min="1" max="120" value={p.age}
-                      onChange={e => updatePassenger(i, 'age', e.target.value)} placeholder="25" />
+                    <div>
+                      <Input label="Age" type="number" min="1" max="120" value={p.age}
+                        onChange={e => updatePassenger(i, 'age', e.target.value)} placeholder="25" />
+                      {specialFare === 'SENIOR_CITIZEN' && p.age && !isSeniorEligible(p.age) && (
+                        <p className="text-xs text-red-500 mt-1">Age must be 60 or above for Senior Citizen fare.</p>
+                      )}
+                    </div>
                     <div className="sm:col-span-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                       <div className="flex gap-4">
