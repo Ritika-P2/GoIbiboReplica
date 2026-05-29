@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { getHotelCardImage } from '../../utils/hotelImages'
 
 const CITY_GRADIENTS = {
   Mumbai:        'from-blue-200 to-indigo-200',
@@ -37,7 +38,7 @@ export default function HotelCard({ hotel, searchParams }) {
   const lowestRoom = hotel.rooms?.[0]
   const gradient   = CITY_GRADIENTS[hotel.city] || 'from-gray-100 to-gray-200'
   const cityIcon   = CITY_ICONS[hotel.city] || '🏨'
-  const imgSrc     = hotel.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(hotel.name)}/400/300`
+  const imgSrc     = getHotelCardImage(hotel)
 
   function handleView() {
     const qs = new URLSearchParams({
