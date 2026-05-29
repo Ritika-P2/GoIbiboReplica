@@ -76,7 +76,8 @@ export default function HotelBookingPage() {
   }
 
   const step1Valid = guestForms.every(g => g.name.trim() && g.age && Number(g.age) > 0 && Number(g.age) <= 100)
-  const step2Valid = contact.email.includes('@') && contact.phone.length >= 10
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
+  const step2Valid = emailValid && contact.phone.length >= 10
 
   function fmtDate(d) {
     return d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
@@ -193,9 +194,12 @@ export default function HotelBookingPage() {
                 <h2 className="font-semibold text-gray-900">Contact Information</h2>
                 <p className="text-sm text-gray-500">Booking voucher will be sent to this email.</p>
                 <Field label="Email Address">
-                  <input className={inputClass} type="email" value={contact.email}
+                  <input className={`${inputClass}${contact.email && !emailValid ? ' border-red-400 bg-red-50' : ''}`} type="email" value={contact.email}
                     onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
                     placeholder="you@example.com" />
+                  {contact.email && !emailValid && (
+                    <p className="text-xs text-red-500 mt-1">Enter a valid email address (e.g. user@example.com)</p>
+                  )}
                 </Field>
                 <Field label="Mobile Number">
                   <input className={inputClass} type="tel" value={contact.phone}
