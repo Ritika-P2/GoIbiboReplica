@@ -4,10 +4,96 @@ import { holidayService } from '../services/holidayService'
 import { ROUTES } from '../constants/routes'
 import Loader from '../components/common/Loader'
 
-const GALLERY_SEEDS = [
-  'landmark', 'scenery', 'culture', 'sunset', 'street', 'nature',
-  'temple', 'beach', 'market', 'mountains', 'river', 'food',
-]
+// Maps city/destination → Unsplash search keywords so gallery shows
+// actual tourist photos of that place instead of generic images.
+const DESTINATION_KEYWORDS = {
+  // Domestic — beaches & coastal
+  Goa:          'goa,beach,india',
+  Andaman:      'andaman,islands,beach',
+  Kochi:        'kerala,backwaters,houseboat',
+  Lakshadweep:  'lakshadweep,coral,beach',
+
+  // Domestic — hill stations & mountains
+  Manali:       'manali,snow,himachal',
+  Shimla:       'shimla,himachal,mountains',
+  Darjeeling:   'darjeeling,tea,himalaya',
+  Ladakh:       'ladakh,monastery,mountains',
+  Nainital:     'nainital,lake,uttarakhand',
+  Rishikesh:    'rishikesh,ganges,yoga',
+  Mussoorie:    'mussoorie,uttarakhand,hills',
+  Ooty:         'ooty,nilgiris,tea',
+  Coorg:        'coorg,coffee,karnataka',
+  Munnar:       'munnar,kerala,tea',
+  Meghalaya:    'meghalaya,cherrapunji,waterfalls',
+
+  // Domestic — heritage & culture
+  Rajasthan:    'rajasthan,palace,desert',
+  Jaipur:       'jaipur,amber-fort,rajasthan',
+  Jodhpur:      'jodhpur,blue-city,rajasthan',
+  Udaipur:      'udaipur,lake,palace',
+  Jaisalmer:    'jaisalmer,desert,rajasthan',
+  Varanasi:     'varanasi,ghats,ganges',
+  Agra:         'agra,taj-mahal,india',
+  Amritsar:     'amritsar,golden-temple,india',
+  Khajuraho:    'khajuraho,temple,india',
+
+  // Domestic — nature & wildlife
+  Kerala:       'kerala,backwaters,india',
+  'Jim Corbett': 'jim-corbett,tiger,wildlife',
+  Ranthambore:  'ranthambore,tiger,safari',
+  Kaziranga:    'kaziranga,rhino,assam',
+
+  // Domestic — metro cities
+  Mumbai:       'mumbai,gateway,india',
+  Delhi:        'delhi,india-gate,monument',
+  Bangalore:    'bangalore,garden-city,india',
+  Chennai:      'chennai,marina,tamil-nadu',
+  Hyderabad:    'hyderabad,charminar,india',
+  Kolkata:      'kolkata,howrah-bridge,india',
+  Chandigarh:   'chandigarh,punjab,india',
+  Mysore:       'mysore,palace,karnataka',
+  Pondicherry:  'pondicherry,french,india',
+
+  // International
+  Bali:         'bali,temple,indonesia',
+  Thailand:     'thailand,bangkok,temple',
+  Singapore:    'singapore,marina-bay,skyline',
+  Maldives:     'maldives,overwater-bungalow,beach',
+  Switzerland:  'switzerland,alps,scenic',
+  Dubai:        'dubai,burj-khalifa,skyline',
+  Paris:        'paris,eiffel-tower,france',
+  London:       'london,big-ben,thames',
+  Tokyo:        'tokyo,japan,cherry-blossom',
+  'New York':   'new-york,manhattan,skyline',
+  Rome:         'rome,colosseum,italy',
+  Barcelona:    'barcelona,sagrada-familia,spain',
+  Istanbul:     'istanbul,hagia-sophia,turkey',
+  Amsterdam:    'amsterdam,canal,netherlands',
+  Prague:       'prague,castle,czech',
+  Santorini:    'santorini,greece,white-blue',
+  'Sri Lanka':  'sri-lanka,temple,ceylon',
+  Nepal:        'nepal,everest,himalaya',
+  Vietnam:      'vietnam,halong-bay,asia',
+  Cambodia:     'cambodia,angkor-wat,temple',
+  Malaysia:     'malaysia,kuala-lumpur,tower',
+  Australia:    'australia,sydney,opera-house',
+  Mauritius:    'mauritius,beach,island',
+}
+
+// Derive destination keywords from city name, falling back to a generic travel query
+function getDestinationKeywords(city) {
+  if (!city) return 'travel,tourism,destination'
+  // Try exact match first, then partial match
+  if (DESTINATION_KEYWORDS[city]) return DESTINATION_KEYWORDS[city]
+  const lower = city.toLowerCase()
+  const match = Object.keys(DESTINATION_KEYWORDS).find(k => lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower))
+  return match ? DESTINATION_KEYWORDS[match] : `${city.toLowerCase().replace(/\s+/g, '-')},travel,tourism`
+}
+
+// Unsplash Source: sig param makes each slot consistent across reloads
+function galleryUrl(keywords, slot, w = 600, h = 400) {
+  return `https://source.unsplash.com/${w}x${h}/?${encodeURIComponent(keywords)}&sig=${slot}`
+}
 
 const TAG_COLORS = {
   Beach:       'bg-cyan-100 text-cyan-700',
@@ -74,8 +160,9 @@ export default function HolidayDetailPage() {
   const reviews       = Number(pkg.reviewCount || 1200)
   const heroImg       = (!imgError && (pkg.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(pkg.title)}/1200/500`))
 
-  const galleryImages = GALLERY_SEEDS.map(seed =>
-    `https://picsum.photos/seed/${encodeURIComponent(pkg.city)}-${seed}/600/400`
+  const destKeywords = getDestinationKeywords(pkg.city)
+  const galleryImages = Array.from({ length: 12 }, (_, i) =>
+    galleryUrl(destKeywords, i + 1)
   )
 
   function handleBook() {
@@ -195,12 +282,13 @@ export default function HolidayDetailPage() {
             <p className="text-sm text-gray-500 mb-4">Explore {pkg.city} — images from this destination</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {galleryImages.map((src, i) => (
-                <div key={i} className="aspect-[4/3] rounded-xl overflow-hidden group">
+                <div key={i} className="aspect-[4/3] rounded-xl overflow-hidden group bg-gray-100">
                   <img
                     src={src}
-                    alt={`${pkg.city} ${GALLERY_SEEDS[i]}`}
+                    alt={`${pkg.city} tourist spot ${i + 1}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    onError={e => { e.currentTarget.style.display = 'none' }}
                   />
                 </div>
               ))}
