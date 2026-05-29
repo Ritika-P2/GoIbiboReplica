@@ -11,7 +11,7 @@ import Input from '../components/common/Input'
 const STEPS = ['Traveller Details', 'Contact Info', 'Review & Pay']
 
 function fmt(price) {
-  return Number(price.replace(/[^0-9]/g, '')).toLocaleString('en-IN')
+  return Number(price).toLocaleString('en-IN')
 }
 
 export default function HolidayBookingPage() {
@@ -25,7 +25,7 @@ export default function HolidayBookingPage() {
   const [step, setStep] = useState(0)
   const [paymentDone, setPaymentDone] = useState(false)
 
-  const basePrice = pkg ? Number(pkg.price.replace(/[^0-9]/g, '')) : 0
+  const basePrice = pkg ? Number(pkg.price) : 0
 
   // Travellers
   const [adults,   setAdults]   = useState(1)
@@ -455,7 +455,7 @@ export default function HolidayBookingPage() {
             <div className="h-28 bg-gradient-to-br from-pink-100 to-orange-100 flex items-center justify-center text-6xl relative">
               {pkg.img}
               <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                {Math.round((1 - basePrice / Number(pkg.originalPrice.replace(/[^0-9]/g, ''))) * 100)}% OFF
+                {Math.round((1 - basePrice / Number(pkg.originalPrice)) * 100)}% OFF
               </span>
             </div>
 
