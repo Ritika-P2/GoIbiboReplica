@@ -93,7 +93,7 @@ function matchesDuration(duration, filter) {
 function PackageCard({ pkg, onBook }) {
   const discount = pkg.originalPrice
     ? Math.round((1 - Number(pkg.price) / Number(pkg.originalPrice)) * 100) : 0
-  const img        = pkg.images?.[0] || null
+  const img        = pkg.images?.[0] || `https://picsum.photos/seed/${encodeURIComponent(pkg.title)}/800/500`
   const rating     = pkg.rating      || 4.2
   const reviews    = pkg.reviewCount || 1200
   const inclusions = pkg.inclusions  || ['Hotel', 'Transfer']
