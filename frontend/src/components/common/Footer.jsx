@@ -9,8 +9,7 @@ const sections = [
       { label: 'Hotels', to: ROUTES.HOTELS },
       { label: 'Trains', to: ROUTES.TRAINS },
       { label: 'Buses', to: ROUTES.BUSES },
-      { label: 'Cabs', to: ROUTES.CABS },
-      { label: 'Holidays', to: ROUTES.HOLIDAYS },
+{ label: 'Holidays', to: ROUTES.HOLIDAYS },
     ],
   },
   {
