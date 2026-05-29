@@ -302,7 +302,7 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
           </div>
 
           {/* Special Fares */}
-          <div className="flex items-center gap-3 mb-5 flex-wrap">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <span className="text-xs font-bold text-gray-900 uppercase tracking-wide whitespace-nowrap">Special<br/>Fares</span>
             {SPECIAL_FARES.map(sf => (
               <button key={sf.id} type="button" onClick={() => setSF(sf.id)}
@@ -312,6 +312,10 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
               </button>
             ))}
           </div>
+          {specialFare === 'SENIOR_CITIZEN' && (
+            <p className="text-xs text-amber-600 mb-4 ml-1">⚠️ Senior Citizen fare is valid for passengers aged 60 years and above only. Age will be verified during booking.</p>
+          )}
+          {specialFare !== 'SENIOR_CITIZEN' && <div className="mb-5" />}
 
           {/* Validation errors */}
           {mcErrors.length > 0 && (
@@ -442,7 +446,7 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
           </div>
 
           {/* Row 3: Special Fares */}
-          <div className="flex items-center gap-3 mb-5 flex-wrap">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <span className="text-xs font-bold text-gray-900 uppercase tracking-wide whitespace-nowrap">Special<br/>Fares</span>
             {SPECIAL_FARES.map(sf => (
               <button key={sf.id} type="button" onClick={() => setSF(sf.id)}
@@ -452,6 +456,10 @@ export default function FlightSearch({ initialValues = {}, onSearch }) {
               </button>
             ))}
           </div>
+          {specialFare === 'SENIOR_CITIZEN' && (
+            <p className="text-xs text-amber-600 mb-4 ml-1">⚠️ Senior Citizen fare is valid for passengers aged 60 years and above only. Age will be verified during booking.</p>
+          )}
+          {specialFare !== 'SENIOR_CITIZEN' && <div className="mb-5" />}
 
           {/* Row 4: SEARCH button */}
           <div className="flex justify-center">
