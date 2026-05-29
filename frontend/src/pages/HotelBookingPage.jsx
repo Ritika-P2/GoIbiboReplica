@@ -76,8 +76,9 @@ export default function HotelBookingPage() {
   }
 
   const step1Valid = guestForms.every(g => g.name.trim() && g.age && Number(g.age) > 0 && Number(g.age) <= 100)
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)
-  const step2Valid = emailValid && contact.phone.length >= 10
+  const emailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(contact.email)
+  const phoneValid = /^[6-9]\d{9}$/.test(contact.phone)
+  const step2Valid = emailValid && phoneValid
 
   function fmtDate(d) {
     return d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
@@ -202,9 +203,12 @@ export default function HotelBookingPage() {
                   )}
                 </Field>
                 <Field label="Mobile Number">
-                  <input className={inputClass} type="tel" value={contact.phone}
+                  <input className={`${inputClass}${contact.phone && !phoneValid ? ' border-red-400 bg-red-50' : ''}`} type="tel" value={contact.phone}
                     onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
-                    placeholder="+91 98765 43210" />
+                    placeholder="e.g. 9876543210" />
+                  {contact.phone && !phoneValid && (
+                    <p className="text-xs text-red-500 mt-1">Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9</p>
+                  )}
                 </Field>
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => setStep(0)}
