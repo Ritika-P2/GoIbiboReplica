@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import HotelCard from '../components/hotels/HotelCard'
 import HotelFilters from '../components/hotels/HotelFilters'
@@ -32,22 +32,27 @@ export default function HotelResultsPage() {
   const [sortBy,     setSortBy]     = useState('rating')
   const [filters,    setFilters]    = useState({ starRating: [], maxPrice: 100000, minRating: 0, budgetRange: '' })
   const [showSearch, setShowSearch] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
-  const fetchHotels = useCallback(async () => {
+  useEffect(() => {
     if (!city) return
+    let cancelled = false
     setLoading(true)
     setError(null)
-    try {
-      const res = await hotelService.search({ city, guests, checkIn, checkOut })
-      setHotels(res.data?.hotels || [])
-    } catch {
-      setError('Failed to fetch hotels. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }, [city, checkIn, checkOut, guests])
+    hotelService.search({ city, guests, checkIn, checkOut })
+      .then(res => {
+        if (!cancelled) setHotels(res.data?.hotels || [])
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to fetch hotels. Please try again.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [city, checkIn, checkOut, guests, retryCount])
 
-  useEffect(() => { fetchHotels() }, [fetchHotels])
+  const fetchHotels = useCallback(() => setRetryCount(c => c + 1), [])
 
   // Client-side filter
   const filtered = hotels.filter(h => {
