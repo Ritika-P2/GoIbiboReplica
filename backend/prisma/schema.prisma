@@ -236,6 +236,26 @@ model HolidayPackage {
   @@map("holiday_packages")
 }
 
+model Offer {
+  id                String   @id @default(uuid())
+  offerCode         String   @unique
+  title             String
+  category          String
+  description       String
+  discountPercent   Int
+  maxDiscountAmount Decimal  @db.Decimal(10, 2)
+  validFrom         DateTime
+  validTo           DateTime
+  termsConditions   String
+  isActive          Boolean  @default(true)
+  emoji             String   @default("🎁")
+  color             String   @default("from-orange-400 to-red-400")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("offers")
+}
+
 enum Role {
   USER
   MANAGER

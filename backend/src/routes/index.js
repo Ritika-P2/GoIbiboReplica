@@ -12,5 +12,6 @@ router.use('/payments', require('./paymentRoutes'))
 router.use('/reviews',  require('./reviewRoutes'))
 router.use('/coupons',  require('./couponRoutes'))
 router.use('/holidays', require('./holidayRoutes'))
+router.use('/offers',   require('./offerRoutes'))
 
 module.exports = router
