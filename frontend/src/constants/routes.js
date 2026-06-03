@@ -38,4 +38,5 @@
   ADMIN_TRAINS: '/admin/trains',
   ADMIN_BUSES: '/admin/buses',
   ADMIN_HOLIDAYS: '/admin/holidays',
+  OFFER_DETAIL: '/offers/details/:id',
 }

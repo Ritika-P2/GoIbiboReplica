@@ -47,4 +47,9 @@
     PROFILE: '/users/profile',
     UPDATE: '/users/profile',
   },
+  OFFERS: {
+    LIST:     '/offers',
+    DETAIL:   (id) => `/offers/${id}`,
+    CATEGORY: (cat) => `/offers/category/${cat}`,
+  },
 }

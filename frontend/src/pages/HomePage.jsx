@@ -1,16 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FlightSearch from '../components/flights/FlightSearch'
+import OfferCard from '../components/offers/OfferCard'
+import OfferCardSkeleton from '../components/offers/OfferCardSkeleton'
+import { offerService } from '../services/offerService'
+import { analytics } from '../services/analyticsService'
 import { ROUTES } from '../constants/routes'
 
 const today = new Date().toISOString().split('T')[0]
-
-const OFFERS = [
-  { id: 1, tag: 'FLIGHTS', title: 'Fly Smart, Save Big', desc: 'Up to 30% off on select routes', color: 'from-orange-400 to-red-400',   emoji: '✈️' },
-  { id: 2, tag: 'HOTELS',  title: 'Hotel Deals',         desc: 'Save up to 40% on stays',       color: 'from-purple-500 to-indigo-500', emoji: '🏨' },
-  { id: 3, tag: 'TRAINS',  title: 'Train Offers',        desc: 'Tatkal bookings made easy',       color: 'from-green-400 to-teal-400',   emoji: '🚂' },
-  { id: 4, tag: 'BUS',     title: 'Bus Cashback',        desc: 'Flat ₹150 off on bus tickets',   color: 'from-blue-400 to-cyan-400',    emoji: '🚌' },
-]
 
 const POPULAR_ROUTES = [
   { from: 'DEL', to: 'BOM', label: 'Delhi → Mumbai',    price: '₹3,999' },
@@ -24,17 +21,54 @@ const POPULAR_ROUTES = [
 ]
 
 const POPULAR_HOTELS = [
-  { city: 'Goa',       emoji: '🏖️', desc: 'Beach resorts from ₹650/night',    gradient: 'from-orange-200 to-yellow-100' },
-  { city: 'Mumbai',    emoji: '🌆', desc: 'City hotels from ₹1,200/night',    gradient: 'from-blue-200 to-indigo-100' },
-  { city: 'Delhi',     emoji: '🏛️', desc: 'Heritage stays from ₹1,200/night', gradient: 'from-red-100 to-orange-100' },
-  { city: 'Bangalore', emoji: '🌿', desc: 'Tech hub hotels from ₹3,200/night',gradient: 'from-green-100 to-teal-100' },
+  { city: 'Goa',       emoji: '🏖️', desc: 'Beach resorts from ₹650/night',     gradient: 'from-orange-200 to-yellow-100' },
+  { city: 'Mumbai',    emoji: '🌆', desc: 'City hotels from ₹1,200/night',     gradient: 'from-blue-200 to-indigo-100' },
+  { city: 'Delhi',     emoji: '🏛️', desc: 'Heritage stays from ₹1,200/night',  gradient: 'from-red-100 to-orange-100' },
+  { city: 'Bangalore', emoji: '🌿', desc: 'Tech hub hotels from ₹3,200/night', gradient: 'from-green-100 to-teal-100' },
 ]
 
-const OFFER_TABS = ['All', 'Bank Offers', 'Flights', 'Hotels', 'Bus', 'Trains']
+// Tab label → API category filter (empty = All)
+const OFFER_TABS = [
+  { label: 'All',         category: '' },
+  { label: 'Bank Offers', category: 'BANK' },
+  { label: 'Flights',     category: 'FLIGHTS' },
+  { label: 'Hotels',      category: 'HOTELS' },
+  { label: 'Bus',         category: 'BUS' },
+  { label: 'Trains',      category: 'TRAINS' },
+]
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const [offerTab, setOfferTab] = useState('All')
+
+  const [activeTab,  setActiveTab]  = useState(OFFER_TABS[0])
+  const [allOffers,  setAllOffers]  = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [fetchError, setFetchError] = useState(false)
+
+  // Fetch all offers once; tab filtering is client-side
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    offerService.list({ limit: 100 })
+      .then(res => {
+        if (!cancelled) {
+          const offers = res.data?.offers || []
+          setAllOffers(offers)
+          offers.forEach(o => analytics.offerViewed(o))
+        }
+      })
+      .catch(() => { if (!cancelled) setFetchError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const visibleOffers = activeTab.category
+    ? allOffers.filter(o => o.category === activeTab.category)
+    : allOffers
+
+  function handleOfferClick(offer) {
+    navigate(`/offers/details/${offer.id}`, { state: { offer } })
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -54,16 +88,16 @@ export default function HomePage() {
       {/* ── Content below hero ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-16 space-y-8">
 
-        {/* Other services row */}
+        {/* Service shortcuts */}
         <div className="bg-white rounded-2xl shadow-md p-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {[
-              { icon: '🏨', label: 'Hotels', route: ROUTES.HOTELS },
-              { icon: '🚂', label: 'Trains', route: ROUTES.TRAINS },
-              { icon: '🚌', label: 'Bus', route: ROUTES.BUSES },
+              { icon: '🏨', label: 'Hotels',   route: ROUTES.HOTELS },
+              { icon: '🚂', label: 'Trains',   route: ROUTES.TRAINS },
+              { icon: '🚌', label: 'Bus',      route: ROUTES.BUSES },
               { icon: '🏖️', label: 'Holidays', route: ROUTES.HOLIDAYS },
             ].map(s => (
-              <button key={s.label} onClick={() => s.route !== '#' && navigate(s.route)}
+              <button key={s.label} onClick={() => navigate(s.route)}
                 className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl hover:bg-orange-50 transition-colors group min-w-[70px]">
                 <span className="text-3xl group-hover:scale-110 transition-transform">{s.icon}</span>
                 <span className="text-xs font-semibold text-gray-700 group-hover:text-orange-600">{s.label}</span>
@@ -72,46 +106,61 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Offers For You */}
+        {/* ── Offers For You ── */}
         <div className="bg-white rounded-2xl shadow-md p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-bold text-gray-900">Offers For You</h2>
-            <button className="text-sm text-blue-600 font-semibold hover:underline flex items-center gap-1">
-              View All <span>›</span>
-            </button>
+            <span className="text-xs text-gray-400">{allOffers.length} offers available</span>
           </div>
 
-          {/* Tabs */}
+          {/* Category tabs */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar mb-5">
             {OFFER_TABS.map(tab => (
-              <button key={tab} onClick={() => setOfferTab(tab)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap border transition-colors ${offerTab === tab ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
-                {tab}
+              <button
+                key={tab.label}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap border transition-colors ${
+                  activeTab.label === tab.label
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                {tab.label}
               </button>
             ))}
           </div>
 
-          {/* Offer cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {OFFERS.filter(o => offerTab === 'All' || o.tag === offerTab.toUpperCase()).map(offer => (
-              <div key={offer.id}
-                className="rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                <div className={`bg-gradient-to-br ${offer.color} h-28 flex items-center justify-center text-6xl`}>
-                  {offer.emoji}
-                </div>
-                <div className="p-3">
-                  <span className="text-[10px] bg-orange-100 text-orange-600 font-bold px-2 py-0.5 rounded-full">{offer.tag}</span>
-                  <p className="text-sm font-bold text-gray-900 mt-1">{offer.title}</p>
-                  <p className="text-xs text-gray-500">{offer.desc}</p>
-                </div>
-              </div>
-            ))}
-            {OFFERS.filter(o => offerTab === 'All' || o.tag === offerTab.toUpperCase()).length === 0 && (
-              <div className="col-span-4 text-center py-8 text-gray-400">
-                <p>No offers available for this category right now.</p>
-              </div>
-            )}
-          </div>
+          {/* Loading skeletons */}
+          {loading && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => <OfferCardSkeleton key={i} />)}
+            </div>
+          )}
+
+          {/* Error state */}
+          {!loading && fetchError && (
+            <div className="text-center py-10">
+              <p className="text-4xl mb-3">⚠️</p>
+              <p className="text-gray-500 text-sm">Could not load offers right now. Please try again later.</p>
+            </div>
+          )}
+
+          {/* Empty state (filtered) */}
+          {!loading && !fetchError && visibleOffers.length === 0 && (
+            <div className="text-center py-8 text-gray-400">
+              <p className="text-4xl mb-2">🏷️</p>
+              <p>No offers available for this category right now.</p>
+            </div>
+          )}
+
+          {/* Offer grid */}
+          {!loading && !fetchError && visibleOffers.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {visibleOffers.map(offer => (
+                <OfferCard key={offer.id} offer={offer} onClick={handleOfferClick} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Popular Flight Routes */}
