@@ -177,7 +177,7 @@ export default function FlightBookingPage() {
     if (!couponInput.trim()) return
     setCouponLoading(true); setCouponError('')
     try {
-      const res = await couponService.validate(couponInput.trim().toUpperCase(), baseFare)
+      const res = await couponService.validate(couponInput.trim().toUpperCase(), baseFare, 'FLIGHTS')
       const { code, discount, description } = res.data
       setCouponCode(code); setCouponDiscount(discount); setCouponDesc(description); setCouponInput('')
     } catch (e) {
